@@ -1,0 +1,8 @@
+{
+  "voice": "zh-CN-XiaoxiaoNeural",
+  "rate": "+0%",
+  "lines": [
+    { "id": "l1", "text": "这是开场的一句话。" },
+    { "id": "l2", "text": "这是正片的一句话，换成你的故事。" }
+  ]
+}

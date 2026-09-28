@@ -1,0 +1,7 @@
+《一帧一行》素材来源
+
+画面：全部由 film.js 代码绘制（Canvas 2D），无外部图片、无视频生成。
+字体：Noto Sans SC（SIL OFL 1.1，Google Fonts），按片内用字裁剪；JetBrains Mono（SIL OFL 1.1）。
+配音：微软 Edge 在线语音 zh-CN-YunxiNeural（edge-tts 生成）。
+配乐：audio.py 用 core/audio/synth.py 程序化合成（和弦垫、贝斯、鼓组、拨弦、FM 钟琴），原创。
+音效：core/audio/sfx.py 程序化合成（按键、滴答、快门、嗖、上扬、低频冲击、铃）。

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>视频工作台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%2346f0c4'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/studio/studio.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="dot"></span>视频工作台 <em>Video Workbench</em></div>
+  <div class="now" id="nowTitle">选择一部片子</div>
+  <div class="top-actions">
+    <button id="btnNew" class="ghost">＋ 新建影片</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="side">
+    <section>
+      <h3>我的影片 <small>films/</small></h3>
+      <ul id="listFilms" class="plist"></ul>
+      <p id="emptyFilms" class="hint">还没有影片。点右上角「新建影片」，从模板开始。</p>
+    </section>
+    <section>
+      <h3>模板 <small>templates/</small></h3>
+      <ul id="listTemplates" class="plist"></ul>
+    </section>
+  </aside>
+
+  <section class="center">
+    <div class="stage" id="stage">
+      <div class="frame-wrap" id="frameWrap"><iframe id="view" title="预览" tabindex="-1"></iframe></div>
+      <div class="stage-empty" id="stageEmpty">从左侧选择一部片子开始预览</div>
+      <div class="stage-status" id="stageStatus"></div>
+    </div>
+
+    <div class="transport">
+      <button id="btnPrev" title="上一帧（←）">⏮</button>
+      <button id="btnPlay" class="play" title="播放 / 暂停（空格）">▶</button>
+      <button id="btnNext" title="下一帧（→）">⏭</button>
+      <div class="tc"><span id="tcNow">00:00.00</span><span class="sep">/</span><span id="tcDur">00:00.00</span><span class="frame" id="tcFrame">#0</span></div>
+      <label class="chk"><input type="checkbox" id="chkAudio" checked> 声音</label>
+      <label class="chk"><input type="checkbox" id="chkLoop" checked> 循环</label>
+      <select id="selFps" title="预览帧率"><option value="0">实时</option><option value="24" selected>24 fps</option><option value="12">12 fps</option></select>
+      <button id="btnReload" class="ghost" title="重新加载页面（改了代码后会自动刷新）">⟳ 刷新</button>
+      <span id="mixState" class="mix-state"></span>
+    </div>
+
+    <div class="timeline" id="timeline">
+      <canvas id="tl"></canvas>
+    </div>
+    <div class="legend"><i class="k shot"></i>镜头 <i class="k cue"></i>字幕 <i class="k voice"></i>配音 <i class="k sfx"></i>音效 <span class="keys">空格 播放 · ←/→ 逐帧 · Shift+←/→ 1 秒 · Home/End</span></div>
+  </section>
+
+  <aside class="panel">
+    <nav class="tabs">
+      <button data-tab="render" class="on">渲染</button>
+      <button data-tab="output">成片</button>
+      <button data-tab="info">信息</button>
+    </nav>
+
+    <div class="tab on" id="tab-render">
+      <div class="group">
+        <h4>审片</h4>
+        <div class="btns">
+          <button data-job="still">渲当前静帧</button>
+          <button data-job="sheet">联系表</button>
+        </div>
+        <label class="row">联系表间隔 <input id="sheetStep" type="number" min="0.25" step="0.25" value="2"> 秒</label>
+      </div>
+      <div class="group">
+        <h4>出片 <small>build.sh</small></h4>
+        <div class="btns">
+          <button data-job="build" data-steps="" class="primary">一键出片</button>
+          <button data-job="build" data-steps="events srt video mux poster">只重渲画面</button>
+          <button data-job="build" data-steps="voice events srt audio mux">重配音 + 混音</button>
+          <button data-job="build" data-steps="events audio mux">只重混音</button>
+          <button data-job="asr">配音检查</button>
+        </div>
+      </div>
+      <div class="group grow">
+        <h4>任务日志 <button id="btnCancel" class="tiny" disabled>取消</button></h4>
+        <div id="jobHead" class="job-head">没有正在运行的任务</div>
+        <pre id="log" class="log"></pre>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-output">
+      <div class="group">
+        <h4>成片</h4>
+        <video id="film" controls preload="metadata"></video>
+        <p id="filmNone" class="hint">还没有成片。在「渲染」里点「一键出片」。</p>
+        <div id="filmLinks" class="links"></div>
+      </div>
+      <div class="group">
+        <h4>静帧与联系表</h4>
+        <div id="stills" class="stills"></div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-info">
+      <div class="group"><h4>文档</h4><div id="docs" class="links"></div></div>
+      <div class="group"><h4>镜头</h4><table id="shots" class="tbl"></table></div>
+      <div class="group"><h4>字幕</h4><table id="cues" class="tbl"></table></div>
+    </div>
+  </aside>
+</main>
+
+<dialog id="dlgNew">
+  <form method="dialog" id="formNew">
+    <h3>新建影片</h3>
+    <label>模板 <select id="newTemplate"></select></label>
+    <label>片名（文件夹名） <input id="newName" placeholder="orange-cat" pattern="[a-z0-9][a-z0-9\-]{0,47}" required></label>
+    <p class="hint">只用小写字母、数字和连字符。会复制模板到 <code>films/片名/</code>，然后在那里改 <code>film.js</code>、<code>lines.json</code>、<code>audio.py</code>。</p>
+    <p class="err" id="newErr"></p>
+    <div class="btns right"><button value="cancel" class="ghost">取消</button><button id="btnCreate" value="default" class="primary">创建</button></div>
+  </form>
+</dialog>
+
+<audio id="mix" preload="auto"></audio>
+<script type="module" src="/studio/app.js"></script>
+</body>
+</html>

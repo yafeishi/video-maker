@@ -18,3 +18,4 @@ core/fonts/src/
 # 用户自己的影片：默认不进 git，想提交某部片时在这里加例外
 /films/*
 !/films/.gitkeep
+**/voices/words.json

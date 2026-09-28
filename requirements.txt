@@ -1,0 +1,11 @@
+# core/ 里的 Python 工具（配音、音频、审片）。安装：sh setup.sh
+numpy
+scipy
+soundfile
+pillow
+fonttools
+brotli
+edge-tts
+pypinyin
+# 可选：配音转写自检 core/tts/asr_check.py / asr_mix.py（首次运行会下载 whisper 模型）
+# faster-whisper

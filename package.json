@@ -1,0 +1,16 @@
+{
+  "name": "video-maker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "视频工作台：用代码导演和渲染短片（render(t) 页面 → 无头 Chrome 逐帧 → ffmpeg 成片），附浏览器里的预览与渲染工作台。",
+  "license": "MIT",
+  "scripts": {
+    "studio": "node studio/server.mjs",
+    "new": "sh tools/new-film.sh"
+  },
+  "dependencies": {
+    "playwright-core": "^1.63.0",
+    "three": "^0.170.0"
+  }
+}

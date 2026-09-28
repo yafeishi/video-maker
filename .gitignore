@@ -1,0 +1,20 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+
+# 完整字体由 setup.sh 下载（影片只提交按用字裁剪后的子集）
+core/fonts/src/
+
+# 渲染与制作中间产物（build.sh 会重新生成）
+**/out/
+**/stills/t_*.jpg
+**/voices/*.wav
+**/voices/.cache.json
+**/events.json
+
+# 用户自己的影片：默认不进 git，想提交某部片时在这里加例外
+/films/*
+!/films/.gitkeep

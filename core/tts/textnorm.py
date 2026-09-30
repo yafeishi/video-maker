@@ -25,7 +25,30 @@ TRAD = str.maketrans({'幀': '帧', '著': '着', '妳': '你', '祂': '他', '�
 
 def norm(s, zh=True):
     s = s.lower().translate(TRAD)
-    if zh: s = re.sub(r'\d+', lambda m: _num(int(m[0])), s)
+    if zh:
+        s = re.sub(r'(\d{4})\s*(?=年)', lambda m: ''.join(_D[int(c)] for c in m[1]), s)
+        s = re.sub(r'\d+', lambda m: _num(int(m[0])), s)
     s = re.sub(r'[\W_]+', '', s)
     if zh and lazy_pinyin: return ' '.join(lazy_pinyin(s))
     return s
+
+
+def _tokens(s, zh):
+    n = norm(s, zh)
+    return n.split(' ') if zh and lazy_pinyin else list(n)
+
+
+def _dist(a, b):
+    row = list(range(len(b) + 1))
+    for i, x in enumerate(a, 1):
+        prev, row[0] = row[0], i
+        for j, y in enumerate(b, 1):
+            prev, row[j] = row[j], min(row[j] + 1, row[j - 1] + 1, prev + (x != y))
+    return row[-1]
+
+
+def compare(got, want, zh=True):
+    """'OK' 完全一致；'NEAR' 只差一两个音节（多半是识别模型听错，人耳听一下即可）；'DIFF' 对不上。"""
+    a, b = _tokens(got, zh), _tokens(want, zh)
+    if a == b: return 'OK'
+    return 'NEAR' if _dist(a, b) <= max(1, len(b) // 12) else 'DIFF'

@@ -18,4 +18,9 @@ mkdir -p "films/$N"
 echo "✓ films/$N（来自 templates/$T）"
 [ "$CTA" = 1 ] && node tools/add-cta.mjs "films/$N"
 echo "  预览：npm run studio → http://127.0.0.1:4400/#films/$N"
-echo "  出片：sh films/$N/build.sh"
+if grep -q "core/deck.js" "films/$N/film.js" 2>/dev/null; then
+  echo "  改内容：照 docs/lines.md 改 films/$N/lines.json（不用改代码）"
+  echo "  出片并自检：sh tools/make.sh films/$N"
+else
+  echo "  出片：sh films/$N/build.sh"
+fi

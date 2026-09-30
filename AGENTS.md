@@ -1,6 +1,6 @@
 # 给 Agent 的说明
 
-这个仓库是一个**视频工作台**：用代码导演和渲染短片。每部片是一个暴露 `render(t)` 的网页，无头 Chrome 逐帧截图，配音、配乐、拟音和字幕都由同一条时间线驱动，最后 ffmpeg 出片。`studio/` 是浏览器里的预览与渲染界面。
+这个仓库是一个**视频工作台**。代码片是暴露 `render(t)` 的网页，无头 Chrome 逐帧截图，配音、配乐、拟音和字幕由同一条时间线驱动，最后 ffmpeg 出片。素材片（`film.json` 里 `kind: "footage"`）不画帧，走 `core/edit/`：本地做镜头检测和组装，**看画面、写节拍的是你**。`studio/` 是浏览器里的预览与渲染界面。
 
 用户打开 Agent，给一个题目（有时指定模板或风格），你的工作是**导演并做出这部片**。
 
@@ -18,8 +18,21 @@
 |---|---|---|
 | `keynote` | 暗色发布会：黑底大字、一种强调色、代码与数据图形 | 产品发布、技术讲解、开源项目介绍、数据回顾 |
 | `blank` | 空白骨架：三个镜头、一句配音、一层和弦垫 | 自己从头写一种新风格 |
+| `footage-demo` | 素材剪辑：镜头检测、节拍、ffmpeg 组装，默认横屏 | 用户带来的 mp4/mov。不是 render(t) |
 
-用户要的风格不在表里时：从 `blank` 开始，先写一份新的 `STYLE.md`（按 `templates/keynote/STYLE.md` 的 §1–§9 结构），再做片。
+用户要的风格不在表里、又是要「画」出来的片子时：从 `blank` 开始，先写一份新的 `STYLE.md`（按 `templates/keynote/STYLE.md` 的 §1–§9 结构），再做片。用户拿来的是视频文件时，走下面的素材片，不要改成 render(t)。
+
+## 素材片
+
+用户给的是 mp4 / mov，或明确说要用素材剪辑时，用 `footage-demo`，不要写 `film.js`。细节在 [`docs/footage.md`](docs/footage.md)。
+
+1. `sh tools/new-film.sh footage-demo <片名>`。真素材放进 `films/<片名>/raw/`（先删掉示例色块）。没有素材时，`build.sh` 会生成色块小样，只能用来跑通流程。
+2. 本地先检测：`node core/edit/run.mjs films/<片名> ingest shots frames`。这一步零模型。
+3. **你来看** `edit/frames/` 和 `edit/shots.json`，写 `edit/beats.json`：每条有 `shot`、`who`、`what`、`emotion`、`role`（起/承/转/合）、`keep`。`source` 必须是 `"bot"`。需要自己定剪辑点就再写 `edit/timeline.json`，口播写 `lines.json`，`source` 同样是 `"bot"`。
+4. `node core/edit/run.mjs films/<片名> voice assemble copy check`。成片在 `out/<片名>.mp4`，旁边有 srt、海报和发布文案。
+5. 没看画面就不要假装看过。来不及写节拍时可以跑完整 `build.sh`，那是时长/动静启发式（`source: "fallback"`），交付时要说明。
+
+标成 `bot` 或 `human` 的 beats / timeline / lines，重跑不会覆盖。不要设 `FORCE=1`，除非用户要推倒重来。默认横屏 1920×1080。竖屏只改 `film.json` 的宽高还不够用，安全区还没做，先跟用户说。
 
 ## 工作流程
 
@@ -48,5 +61,7 @@ sh tools/new-film.sh keynote my-film         # 新建影片
 node core/render/still.mjs films/my-film 3.5 12        # 静帧
 sh films/my-film/build.sh                    # 一键出片
 sh films/my-film/build.sh events audio mux   # 只重混音
+node core/edit/run.mjs films/my-footage ingest shots frames   # 素材片：检测并抽帧，停下来写 beats
+sh films/my-footage/build.sh                 # 素材片一键出片（kind: footage）
 .venv/bin/python core/tts/asr_mix.py films/my-film/out/mix.wav films/my-film/events.json   # 成片配音检查
 ```

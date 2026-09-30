@@ -1,0 +1,12 @@
+{
+  "kind": "footage",
+  "title": "色块故事",
+  "width": 1920,
+  "height": 1080,
+  "fps": 24,
+  "sceneThreshold": 0.05,
+  "silenceSplit": 0.8,
+  "silenceNoise": "-36dB",
+  "target": { "min": 60, "max": 120, "segments": [6, 12] },
+  "transition": { "cut": 0.12, "role": 0.45 }
+}

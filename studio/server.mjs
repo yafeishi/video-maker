@@ -3,6 +3,7 @@
 // 只跑白名单里的任务（build.sh 步骤、静帧、联系表、配音检查、发布文案），项目路径限定在 templates/ 和 films/ 之下
 import fs from 'fs'; import path from 'path'; import { spawn } from 'child_process'; import { fileURLToPath } from 'url';
 import { serve, sendFile } from '../core/render/serve.mjs';
+import { placeSegments } from '../core/edit/timeline.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -10,6 +11,7 @@ const PORT = +opt('--port', process.env.STUDIO_PORT || 4400), HOST = opt('--host
 const PY = fs.existsSync(path.join(ROOT, '.venv/bin/python')) ? path.join(ROOT, '.venv/bin/python') : 'python3';
 const KINDS = { templates: 'template', films: 'film' };
 const STEPS = ['fonts', 'voice', 'events', 'srt', 'audio', 'video', 'mux', 'poster', 'copy', 'check'];
+const EDIT_STEPS = ['ingest', 'shots', 'frames', 'beats', 'timeline', 'lines', 'voice', 'assemble', 'copy', 'check'];
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,47}$/;
 
 // ———————— 项目 ————————
@@ -26,13 +28,14 @@ function describe(kind, name) {
   const rel = `${kind}/${name}`, abs = path.join(ROOT, rel);
   const html = fs.readFileSync(path.join(abs, 'index.html'), 'utf8');
   const title = (/<title>([^<]*)<\/title>/.exec(html) || [, name])[1].trim();
+  const filmKind = filmKindOf(abs);
   const out = f => exists(abs, 'out', f) ? `/${rel}/out/${f}` : null;
   const stills = exists(abs, 'stills') ? fs.readdirSync(path.join(abs, 'stills')).filter(f => f.endsWith('.jpg')).sort((a, b) => mtime(path.join(abs, 'stills', b)) - mtime(path.join(abs, 'stills', a))).slice(0, 12).map(f => `/${rel}/stills/${f}`) : [];
   return {
-    kind: KINDS[kind], name, path: rel, title,
+    kind: KINDS[kind], filmKind, name, path: rel, title,
     poster: exists(abs, 'poster.jpg') ? `/${rel}/poster.jpg` : out('poster.jpg'),
     film: out(`${name}.mp4`), copy: out('copy.json'), copyTime: mtime(path.join(abs, 'out', 'copy.json')), srt: out(`${name}.srt`), mix: out('mix.wav'), mixTime: mtime(path.join(abs, 'out', 'mix.wav')),
-    docs: ['STYLE.md', 'TREATMENT.md', 'CREDITS', 'publish.json'].filter(f => exists(abs, f)).map(f => `/${rel}/${f}`),
+    docs: ['STYLE.md', 'TREATMENT.md', 'CREDITS', 'publish.json', 'film.json'].filter(f => exists(abs, f)).map(f => `/${rel}/${f}`),
     build: exists(abs, 'build.sh'), stills,
     updated: Math.max(...['film.js', 'index.html', 'lines.json', 'poster.jpg'].map(f => mtime(path.join(abs, f)))),
     codeTime: Math.max(...['film.js', 'lines.json', 'audio.py'].map(f => mtime(path.join(abs, f)))),
@@ -53,9 +56,71 @@ function newFilm(template, name) {
   if (!NAME_RE.test(name || '')) throw new Error('片名只能用小写字母、数字和连字符，例如 orange-cat');
   const dst = path.join(ROOT, 'films', name);
   if (fs.existsSync(dst)) throw new Error(`films/${name} 已存在`);
-  const skip = new Set(['out', 'stills', 'voices', 'events.json', 'poster.jpg']);
-  fs.cpSync(src, dst, { recursive: true, filter: s => !skip.has(path.relative(src, s).split(path.sep)[0]) });
+  const skip = new Set(['out', 'stills', 'voices', 'events.json', 'poster.jpg', 'raw']);
+  fs.cpSync(src, dst, { recursive: true, filter: s => {
+    const rel = path.relative(src, s);
+    if (!rel) return true;
+    if (skip.has(rel.split(path.sep)[0])) return false;
+    if (rel === path.join('edit', 'work') || rel.startsWith(path.join('edit', 'work') + path.sep)) return false;
+    if (rel === path.join('edit', 'frames') || rel.startsWith(path.join('edit', 'frames') + path.sep)) return false;
+    return true;
+  } });
   return `films/${name}`;
+}
+
+function filmKindOf(abs) {
+  try {
+    const j = JSON.parse(fs.readFileSync(path.join(abs, 'film.json'), 'utf8'));
+    if (j && j.kind === 'footage') return 'footage';
+  } catch { /* 代码片没有 film.json */ }
+  return 'code';
+}
+function readJSON(abs) { try { return JSON.parse(fs.readFileSync(abs, 'utf8')); } catch { return null; } }
+function editStatus(abs, rel) {
+  if (filmKindOf(abs) !== 'footage') return { filmKind: 'code' };
+  const ingest = readJSON(path.join(abs, 'edit/ingest.json'));
+  const shots = readJSON(path.join(abs, 'edit/shots.json'));
+  const beats = readJSON(path.join(abs, 'edit/beats.json'));
+  const timeline = readJSON(path.join(abs, 'edit/timeline.json'));
+  const lines = readJSON(path.join(abs, 'lines.json'));
+  const assembly = readJSON(path.join(abs, 'edit/assembly.json'));
+  const events = readJSON(path.join(abs, 'events.json'));
+  const byFile = new Map((ingest?.files || []).map(f => [f.file, f]));
+  let rawNames = [];
+  try { rawNames = fs.readdirSync(path.join(abs, 'raw')).filter(f => /\.(mp4|mov|m4v)$/i.test(f)).sort(); } catch { /* 还没有 raw */ }
+  let segments = timeline?.segments || [];
+  let dur = timeline?.dur || 0;
+  if (segments.length && segments.every(s => Number.isFinite(+s.in) && Number.isFinite(+s.out) && +s.out > +s.in)) {
+    try {
+      const placed = placeSegments(segments, { transition: timeline.transition || { cut: 0.12, role: 0.45 } });
+      segments = placed.segments; dur = placed.dur;
+    } catch { /* 时间线还不能排时钟，就按文件里的 t0 */ }
+  }
+  const roles = {};
+  for (const b of beats?.beats || []) if (b.role) roles[b.role] = (roles[b.role] || 0) + 1;
+  const frameDir = path.join(abs, 'edit/frames');
+  let frames = [];
+  if (fs.existsSync(frameDir)) {
+    frames = fs.readdirSync(frameDir).filter(f => /^s\d+-\d+\.jpg$/.test(f)).sort().slice(0, 60).map(f => {
+      const shot = (/^(s\d+)-\d+\.jpg$/.exec(f) || [])[1];
+      const listed = readJSON(path.join(abs, 'edit/frames.json'))?.frames?.find(x => x.file === `edit/frames/${f}`);
+      return { shot, t: listed?.t, url: `/${rel}/edit/frames/${f}` };
+    });
+  }
+  return {
+    filmKind: 'footage',
+    raw: rawNames.map(name => ({ file: `raw/${name}`, ...(byFile.get(`raw/${name}`) || {}) })),
+    shots: shots?.shots ? { n: shots.shots.length, threshold: shots.threshold, method: shots.method } : null,
+    beats: beats?.beats ? { n: beats.beats.length, source: beats.source || '', logline: beats.logline || '', roles } : null,
+    timeline: timeline ? {
+      n: segments.length, dur, source: timeline.source || '', warnings: timeline.warnings || [],
+      segments: segments.map(s => ({ id: s.id, shot: s.shot, role: s.role, src: s.src, in: +s.in, out: +s.out, t0: s.t0, t1: s.t1 })),
+    } : null,
+    frames,
+    lines: lines?.lines ? { n: lines.lines.length, source: lines.source || '' } : null,
+    assembly: assembly ? { dur: assembly.dur, width: assembly.width, height: assembly.height } : null,
+    cues: events?.cues || [],
+  };
 }
 
 // ———————— 任务 ————————
@@ -75,6 +140,10 @@ function taskCommand(dir, task, a = {}) {
       return ['sh', ['-c', sh]];
     }
     case 'copy': return ['node', [path.join(ROOT, 'core/publish/copy.mjs'), dir]];
+    case 'edit': {
+      const steps = (a.steps || []).filter(s => EDIT_STEPS.includes(s));
+      return ['node', [path.join(ROOT, 'core/edit/run.mjs'), dir, ...steps]];
+    }
     case 'asr': return ['sh', ['-c', `"${PY}" "${ROOT}/core/tts/asr_check.py" "${dir}/lines.json" "${dir}/voices" && "${PY}" "${ROOT}/core/tts/asr_mix.py" "${dir}/out/mix.wav" "${dir}/events.json"`]];
     default: throw new Error('未知任务 ' + task);
   }
@@ -108,7 +177,7 @@ function watch(rel, res) {
   if (!w) {
     const subs = new Set(); let timer = null;
     const fw = fs.watch(dir, { recursive: true }, (_, f) => {
-      if (!f || /^(out|stills|voices)[\\/]|events\.json$|\.wav$|~$|\.swp$/.test(f)) return;
+      if (!f || /^(out|stills|voices)[\\/]|events\.json$|\.wav$|~$|\.swp$|^edit[\\/](work|frames)[\\/]/.test(f)) return;
       clearTimeout(timer); timer = setTimeout(() => { for (const r of subs) r.write(`data: ${JSON.stringify({ file: f })}\n\n`); }, 150);
     });
     w = { subs, fw }; watchers.set(rel, w);
@@ -128,6 +197,11 @@ async function api(req, res, u) {
   const q = new URL(req.url, 'http://x').searchParams;
   try {
     if (u === '/api/projects' && req.method === 'GET') return json(res, 200, listProjects()), true;
+    if (u === '/api/edit' && req.method === 'GET') {
+      const dir = projectDir(q.get('path'));
+      if (!dir) return json(res, 404, { error: '项目不存在' }), true;
+      return json(res, 200, editStatus(dir, q.get('path'))), true;
+    }
     if (u === '/api/new' && req.method === 'POST') { const b = await body(req); return json(res, 200, { path: newFilm(b.template, b.name) }), true; }
     if (u === '/api/jobs' && req.method === 'GET') return json(res, 200, [...jobs.values()].reverse().map(pub)), true;
     if (u === '/api/jobs' && req.method === 'POST') { const b = await body(req); return json(res, 200, pub(startJob(b.path, b.task, b.args || {}))), true; }

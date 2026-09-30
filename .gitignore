@@ -18,4 +18,15 @@ core/fonts/src/
 # 用户自己的影片：默认不进 git，想提交某部片时在这里加例外
 /films/*
 !/films/.gitkeep
+
+# 素材小样的生成物（make-raw.mjs / core/edit 会重新做）
+templates/footage-demo/raw/*.mp4
+templates/footage-demo/raw/*.mov
+templates/footage-demo/raw/*.m4v
+templates/footage-demo/edit/work/
+templates/footage-demo/edit/frames/
+templates/footage-demo/edit/*.json
+templates/footage-demo/lines.json
+templates/footage-demo/voices/
+templates/footage-demo/poster.jpg
 **/voices/words.json

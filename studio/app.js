@@ -12,8 +12,8 @@ async function loadProjects() {
   S.projects = await api('/api/projects');
   const films = S.projects.filter(p => p.kind === 'film'), temps = S.projects.filter(p => p.kind === 'template');
   const item = p => el('li', { class: S.cur?.path === p.path ? 'on' : '', 'data-path': p.path, onclick: () => select(p.path) },
-    el('div', { class: 'thumb', style: p.poster ? `background-image:url("${p.poster}?${p.updated}")` : '' }, p.poster ? '' : 'render(t)'),
-    el('div', { class: 'meta' }, p.film ? el('span', { class: 'badge' }, '已出片') : '', el('b', {}, p.title), el('span', {}, p.path)));
+    el('div', { class: 'thumb', style: p.poster ? `background-image:url("${p.poster}?${p.updated}")` : '' }, p.poster ? '' : (p.filmKind === 'footage' ? '素材' : 'render(t)')),
+    el('div', { class: 'meta' }, p.film ? el('span', { class: 'badge' }, '已出片') : (p.filmKind === 'footage' ? el('span', { class: 'badge' }, '素材') : ''), el('b', {}, p.title), el('span', {}, p.path)));
   $('#listFilms').replaceChildren(...films.map(item)); $('#emptyFilms').style.display = films.length ? 'none' : '';
   $('#listTemplates').replaceChildren(...temps.map(item));
   $('#newTemplate').replaceChildren(...temps.map(p => el('option', { value: p.name }, `${p.title}（${p.name}）`)));
@@ -26,8 +26,14 @@ async function select(path, keepT = false) {
   S.cur = p; location.hash = path;
   document.querySelectorAll('.plist li').forEach(li => li.classList.toggle('on', li.dataset.path === path));
   $('#nowTitle').innerHTML = ''; $('#nowTitle').append(el('b', {}, p.title), `  ·  ${p.path}`);
+  document.body.dataset.kind = p.filmKind || 'code';
+  const footage = p.filmKind === 'footage';
+  $('#footageStage').hidden = !footage;
+  $('#frameWrap').style.display = footage ? 'none' : '';
   if (!same || !keepT) S.t = 0;
-  pause(); await loadFrame();
+  pause();
+  if (footage) { view.src = 'about:blank'; S.fw = null; $('#stageEmpty').style.display = 'none'; status(''); await loadFootage(); }
+  else await loadFrame();
   audio.src = p.mix ? `${p.mix}?${p.mixTime}` : ''; mixState();
   renderOutputs(); attachRunningJob();
   if (!same) watchProject();
@@ -152,8 +158,16 @@ function follow(j) {
     if (d.line !== undefined) { const stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 30; log.textContent += d.line + '\n'; if (stick) log.scrollTop = log.scrollHeight; }
     if (d.end) {
       es.close(); clearInterval(timer); S.job = { ...S.job, status: d.end, code: d.code, ended: Date.now() }; setJobHead(S.job);
-      loadProjects().then(() => { if (S.cur?.mix) { audio.src = `${S.cur.mix}?${S.cur.mixTime}`; } if (d.end === 'done' && ['still', 'sheet'].includes(j.task)) tab('output'); if (d.end === 'done' && j.task === 'copy') tab('publish'); });
-      if (j.args?.steps?.some?.(s => ['events', 'voice'].includes(s)) || j.task === 'build') loadFrame();
+      const footage = document.body.dataset.kind === 'footage';
+      loadProjects().then(() => {
+        if (S.cur?.mix) audio.src = `${S.cur.mix}?${S.cur.mixTime}`;
+        if (d.end !== 'done') return;
+        if (footage) loadFootage();
+        if (['still', 'sheet'].includes(j.task)) tab('output');
+        if (j.task === 'copy') tab('publish');
+        if (footage && (j.task === 'build' || j.args?.steps?.includes?.('assemble'))) tab('output');
+      });
+      if (!footage && (j.args?.steps?.some?.(s => ['events', 'voice'].includes(s)) || j.task === 'build')) loadFrame();
     }
   };
   es.onerror = () => { es.close(); clearInterval(timer); };
@@ -170,6 +184,7 @@ async function attachRunningJob() {
 document.querySelectorAll('[data-job]').forEach(b => b.addEventListener('click', () => {
   const task = b.dataset.job;
   if (task === 'build') run('build', { steps: (b.dataset.steps || '').split(' ').filter(Boolean) });
+  else if (task === 'edit') run('edit', { steps: (b.dataset.steps || '').split(' ').filter(Boolean) });
   else if (task === 'still') run('still', { t: frameTime(S.t) });
   else if (task === 'sheet') run('sheet', { step: +$('#sheetStep').value || 2, dur: S.dur });
   else run(task);
@@ -181,7 +196,11 @@ function watchProject() {
   S.watch?.close(); if (!S.cur) return;
   const es = new EventSource(`/api/watch?path=${encodeURIComponent(S.cur.path)}`); S.watch = es;
   let timer = null;
-  es.onmessage = () => { clearTimeout(timer); timer = setTimeout(async () => { const was = S.playing; pause(); await loadFrame(); mixState(); if (was) play(); }, 250); };
+  es.onmessage = () => { clearTimeout(timer); timer = setTimeout(async () => {
+    const was = S.playing; pause();
+    if (document.body.dataset.kind === 'footage') await loadFootage(); else await loadFrame();
+    mixState(); if (was && document.body.dataset.kind !== 'footage') play();
+  }, 250); };
 }
 
 // ———————— 面板 ————————
@@ -195,8 +214,55 @@ function mixState() {
   m.textContent = stale ? '代码比混音新：声音可能对不上，重混音即可' : '混音 ' + new Date(p.mixTime).toLocaleTimeString();
   m.className = 'mix-state' + (stale ? ' warn' : '');
 }
+async function loadFootage() {
+  if (!S.cur || S.cur.filmKind !== 'footage') return;
+  let d;
+  try { d = await api('/api/edit?path=' + encodeURIComponent(S.cur.path)); }
+  catch (e) { status(e.message, true); return; }
+  if (S.cur?.filmKind !== 'footage') return;
+  const segs = d.timeline?.segments || [];
+  S.dur = d.assembly?.dur || d.timeline?.dur || 0;
+  S.tl = {
+    shots: segs.map(s => ({ id: `${s.role || ''} ${s.id || ''}`.trim(), t0: s.t0 || 0, t1: s.t1 || s.t0 || 0 })),
+    cues: d.cues || [],
+    ev: (d.cues || []).map(c => ({ t: c.t0, type: 'voice', d: Math.max(0, c.t1 - c.t0) })),
+  };
+  $('#tcDur').textContent = fmt(S.dur); S.t = Math.min(S.t, S.dur || 0); draw(S.t, true);
+  const chip = (ok, text) => el('span', { class: 'chip' + (ok ? ' ok' : '') }, text);
+  $('#editChips').replaceChildren(
+    chip(d.raw?.length, `素材 ${d.raw?.length || 0}`),
+    chip(d.shots, `镜头 ${d.shots?.n ?? '—'}`),
+    chip(d.frames?.length, `抽帧 ${d.frames?.length || 0}`),
+    chip(d.beats, `节拍 ${d.beats ? (d.beats.source || '未标') + ' ' + d.beats.n : '—'}`),
+    chip(d.timeline, `时间线 ${d.timeline ? d.timeline.n + ' 段' : '—'}`),
+    chip(d.lines, `旁白 ${d.lines ? (d.lines.source || '') : '—'}`),
+    chip(d.assembly, d.assembly ? `${d.assembly.width}×${d.assembly.height}` : '未出片'),
+  );
+  const durTxt = d.timeline?.dur != null ? `规划 ${Number(d.timeline.dur).toFixed(1)}s` : '还没有时间线';
+  $('#editSummary').textContent = [d.beats?.logline, durTxt, d.timeline?.source, ...(d.timeline?.warnings || [])].filter(Boolean).join(' · ');
+  $('#editSegments').replaceChildren(...(segs.length ? segs.map(s => el('tr', { onclick: () => seekFootage(s.t0) },
+    el('td', { class: 'n' }, fmt(s.t0 || 0)), el('td', {}, `${s.role || ''} ${s.id || ''}`), el('td', { class: 'n' }, `${Math.max(0, (s.out || 0) - (s.in || 0)).toFixed(1)}s`)))
+    : [el('tr', {}, el('td', {}, '还没有时间线'))]));
+  $('#filmstrip').replaceChildren(...(d.frames?.length ? d.frames.map(f => el('figure', { onclick: () => { const seg = segs.find(s => s.shot === f.shot); if (seg) seekFootage(seg.t0); } },
+    el('img', { src: `${f.url}?${Date.now()}`, alt: f.shot || '', loading: 'lazy' }),
+    el('figcaption', {}, `${f.shot || ''}  ${f.t != null ? Number(f.t).toFixed(1) : ''}`)))
+    : [el('p', { class: 'hint' }, '还没有抽帧。在「素材」里点「检测并抽帧」，或在「渲染」里一键出片。')]));
+  $('#footageStatus').textContent = d.assembly ? '成片在上面，点镜头或时间线可跳转。' : '检测、抽帧、排时间线之后，在这里看结构。组装完成后可以播放。';
+  renderInfo();
+}
+function seekFootage(t) {
+  S.t = t || 0; draw(S.t, true);
+  const v = $('#footageVideo');
+  if (v?.src && !v.hidden) v.currentTime = S.t;
+}
+
 function renderOutputs() {
   const p = S.cur, v = $('#film');
+  const fv = $('#footageVideo');
+  if (fv) {
+    if (p.filmKind === 'footage' && p.film) { const src = `${p.film}?${p.mixTime}`; if (!fv.src.endsWith(src)) fv.src = src; fv.hidden = false; }
+    else { fv.removeAttribute('src'); fv.load(); fv.hidden = true; }
+  }
   if (p.film) { const src = `${p.film}?${p.mixTime}`; if (!v.src.endsWith(src)) v.src = src; v.classList.add('show'); $('#filmNone').style.display = 'none'; }
   else { v.removeAttribute('src'); v.load(); v.classList.remove('show'); $('#filmNone').style.display = ''; }
   const links = [[p.film, '下载 mp4'], [p.srt, '字幕 .srt'], [p.mix, '混音 .wav'], [p.poster, '海报'], [p.copy, '发布文案 .json']].filter(([u]) => u);

@@ -32,6 +32,11 @@
   <section class="center">
     <div class="stage" id="stage">
       <div class="frame-wrap" id="frameWrap"><iframe id="view" title="预览" tabindex="-1"></iframe></div>
+      <div class="footage-stage" id="footageStage" hidden>
+        <video id="footageVideo" controls playsinline hidden></video>
+        <div id="footageStatus" class="footage-status"></div>
+        <div id="filmstrip" class="filmstrip"></div>
+      </div>
       <div class="stage-empty" id="stageEmpty">从左侧选择一部片子开始预览</div>
       <div class="stage-status" id="stageStatus"></div>
     </div>
@@ -57,6 +62,7 @@
   <aside class="panel">
     <nav class="tabs">
       <button data-tab="render" class="on">渲染</button>
+      <button data-tab="footage">素材</button>
       <button data-tab="output">成片</button>
       <button data-tab="publish">发布</button>
       <button data-tab="info">信息</button>
@@ -66,25 +72,50 @@
       <div class="group">
         <h4>审片</h4>
         <div class="btns">
-          <button data-job="still">渲当前静帧</button>
-          <button data-job="sheet">联系表</button>
+          <button data-job="still" class="only-code">渲当前静帧</button>
+          <button data-job="sheet" class="only-code">联系表</button>
         </div>
-        <label class="row">联系表间隔 <input id="sheetStep" type="number" min="0.25" step="0.25" value="2"> 秒</label>
+        <label class="row only-code">联系表间隔 <input id="sheetStep" type="number" min="0.25" step="0.25" value="2"> 秒</label>
       </div>
       <div class="group">
         <h4>出片 <small>build.sh</small></h4>
         <div class="btns">
           <button data-job="build" data-steps="" class="primary">一键出片</button>
-          <button data-job="build" data-steps="events srt video mux poster">只重渲画面</button>
-          <button data-job="build" data-steps="voice events srt audio mux">重配音 + 混音</button>
-          <button data-job="build" data-steps="events audio mux">只重混音</button>
+          <button data-job="build" data-steps="events srt video mux poster" class="only-code">只重渲画面</button>
+          <button data-job="build" data-steps="voice events srt audio mux" class="only-code">重配音 + 混音</button>
+          <button data-job="build" data-steps="events audio mux" class="only-code">只重混音</button>
           <button data-job="asr">配音检查</button>
         </div>
+        <p class="hint only-footage">素材片的一键出片会做镜头检测、节拍、旁白、ffmpeg 组装和发布文案，不是逐帧渲染。分步在「素材」页。</p>
       </div>
       <div class="group grow">
         <h4>任务日志 <button id="btnCancel" class="tiny" disabled>取消</button></h4>
         <div id="jobHead" class="job-head">没有正在运行的任务</div>
         <pre id="log" class="log"></pre>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-footage">
+      <div class="group only-code">
+        <h4>素材</h4>
+        <p class="hint">这部是代码片，画面由 render(t) 画出来。素材剪辑只用于 film.json 里 kind 为 footage 的片子，例如模板「色块故事」。</p>
+      </div>
+      <div class="group only-footage">
+        <h4>素材流程 <small>core/edit</small></h4>
+        <div id="editChips" class="chips"></div>
+        <p id="editSummary" class="hint"></p>
+        <div class="btns">
+          <button data-job="edit" data-steps="ingest shots frames">检测并抽帧</button>
+          <button data-job="edit" data-steps="beats">补全节拍</button>
+          <button data-job="edit" data-steps="timeline">排时间线</button>
+          <button data-job="edit" data-steps="lines voice">写旁白并配音</button>
+          <button data-job="edit" data-steps="assemble copy check" class="primary">组装成片</button>
+        </div>
+        <p class="hint">Bot 写好的 beats.json、timeline.json、lines.json 只要 source 是 bot 或 human，就不会被覆盖。一键出片在「渲染」页。</p>
+      </div>
+      <div class="group only-footage">
+        <h4>时间线</h4>
+        <table id="editSegments" class="tbl"></table>
       </div>
     </div>
 
@@ -124,7 +155,7 @@
     <h3>新建影片</h3>
     <label>模板 <select id="newTemplate"></select></label>
     <label>片名（文件夹名） <input id="newName" placeholder="orange-cat" pattern="[a-z0-9][a-z0-9\-]{0,47}" required></label>
-    <p class="hint">只用小写字母、数字和连字符。会复制模板到 <code>films/片名/</code>，然后在那里改 <code>film.js</code>、<code>lines.json</code>、<code>audio.py</code>。</p>
+    <p class="hint">只用小写字母、数字和连字符。代码片会复制模板到 <code>films/片名/</code>，然后改 <code>film.js</code>、<code>lines.json</code>、<code>audio.py</code>。素材片选「色块故事」，把视频放进 <code>raw/</code>。</p>
     <p class="err" id="newErr"></p>
     <div class="btns right"><button value="cancel" class="ghost">取消</button><button id="btnCreate" value="default" class="primary">创建</button></div>
   </form>

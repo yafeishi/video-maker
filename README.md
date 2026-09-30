@@ -60,6 +60,21 @@ sh films/my-launch/build.sh copy               # 同上，走出片流程
 
 `title` / `hook` 覆盖片名和一句话，`tone`（`tech` / `warm` / `plain`）指定语气，`link` 只放进 X，`platforms.<平台>` 可直接改写 `title`、`body`、`tags`。示例见 [`templates/keynote/publish.json`](templates/keynote/publish.json)。
 
+## 素材成片
+
+除了 `render(t)` 的代码片，还可以剪已有视频。片子目录放 `film.json`（`"kind": "footage"`）和 `raw/` 里的 mp4 / mov。本地用 ffmpeg 做镜头检测和抽帧，**看画面、写节拍的是 Bot**（盒子上的模型，仓库里不配第三方 key）。没有 Bot 时，用时长和动静的启发式也能出一条 60–120 秒、横屏 1920×1080 的片子，方便先跑通。
+
+```sh
+sh tools/new-film.sh footage-demo my-footage   # 复制示例
+# 真素材：清空 films/my-footage/raw/ 后放入自己的视频
+sh films/my-footage/build.sh                   # raw 空着会先生成色块小样，再出片
+node core/edit/run.mjs films/my-footage ingest shots frames   # 只检测到抽帧，停下来给 Bot
+```
+
+Bot 看 `edit/frames/`，把 `edit/beats.json`、需要的话还有 `edit/timeline.json` 和 `lines.json` 的 `source` 写成 `"bot"`，再跑 `voice assemble copy check`。标成 bot / human 的文件不会被下次构建覆盖。竖屏以后改 `film.json` 的宽高即可走同一条缩放，安全区还没做。交接细节见 [docs/footage.md](docs/footage.md)。
+
+工作台里选中素材片，会多一个「素材」页：镜头、抽帧、时间线和组装。代码片的预览、逐帧渲染不受影响。
+
 ## 让 Agent 帮你做片
 
 在这个仓库里打开 Cursor / Claude Code 等 Agent，说题目就行，例如：
@@ -77,6 +92,8 @@ Agent 会按 [`AGENTS.md`](AGENTS.md) 的流程工作：问一次问题 → 写�
 | `core/render/` | 静帧、逐帧视频、事件导出、联系表、字幕、合成、成片检查 |
 | `core/build.sh` | 一键出片流程（fonts → voice → events → srt → audio → video → mux → poster → check） |
 | `core/publish/` | 发布文案 `copy.mjs`：视频号 / X / 小红书 / 抖音 |
+| `core/edit/` | 素材片：清点、镜头检测、抽帧、节拍、时间线、旁白、ffmpeg 组装 |
+| `templates/footage-demo/` | 素材小样（色块，横屏）。真视频放 `films/<片名>/raw/` |
 | `core/tts/` | 中文配音（edge-tts）、干声与成片混音的转写自检 |
 | `core/audio/` | 程序化拟音 `sfx.py`、配乐合成器 `synth.py`、混音 `mix.py` |
 | `core/fonts/` | JetBrains Mono、按片裁剪思源黑体的 `subset.py` |

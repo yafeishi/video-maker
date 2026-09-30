@@ -13,7 +13,7 @@ args = sys.argv[1:]; model = 'small'
 if '--model' in args: i = args.index('--model'); model = args[i + 1]; del args[i:i + 2]
 if len(args) < 2: sys.exit(__doc__)
 data = json.load(open(args[0], encoding='utf-8')); lines = data['lines'] if isinstance(data, dict) else data
-m = WhisperModel(model, device='cpu', compute_type='int8')
+m = WhisperModel(model, device='cpu', compute_type='float32')
 bad, words = 0, {}
 for L in lines:
     y, sr = sf.read(os.path.join(args[1], L['id'] + '.wav'))
@@ -21,6 +21,7 @@ for L in lines:
     y = resample_poly(y, 16000, sr); pad = np.zeros(int(.6 * 16000))
     lang = 'zh' if re.search(r'[\u4e00-\u9fff]', L['text']) else 'en'
     segs, _ = m.transcribe(np.concatenate([pad, y, pad]).astype(np.float32), beam_size=5, language=lang, word_timestamps=True,
+                          temperature=0, condition_on_previous_text=False,
                           initial_prompt='以下是普通话的句子。' if lang == 'zh' else None)
     segs = list(segs); got = ''.join(s.text.strip() for s in segs)
     words[L['id']] = [(w.word.strip(), round(w.start - .6, 3), round(w.end - .6, 3)) for s in segs for w in s.words]

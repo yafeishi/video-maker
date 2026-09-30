@@ -16,13 +16,13 @@ y, sr = sf.read(args[0]); y = y.mean(1) if y.ndim > 1 else y
 y = resample_poly(y, 16000, sr).astype(np.float32)
 ev = json.load(open(args[1], encoding='utf-8'))
 cues = ev.get('cues', [])
-m = WhisperModel(model, device='cpu', compute_type='int8')
+m = WhisperModel(model, device='cpu', compute_type='float32')
 bad = 0
 for e in (x for x in ev['ev'] if x['type'] == 'voice'):
     want = next((c['text'] for c in cues if abs(c['t0'] - e['t']) < .05), e['id'])
     a, b = max(0, int((e['t'] - .4) * 16000)), int((e['t'] + e.get('d', 2) + .4) * 16000)
     lang = 'zh' if re.search(r'[\u4e00-\u9fff]', want) else 'en'
-    segs, _ = m.transcribe(y[a:b], beam_size=5, language=lang, initial_prompt='以下是普通话的句子。' if lang == 'zh' else None)
+    segs, _ = m.transcribe(y[a:b], beam_size=5, language=lang, temperature=0, condition_on_previous_text=False, initial_prompt='以下是普通话的句子。' if lang == 'zh' else None)
     got = ''.join(s.text.strip() for s in segs)
     ok = norm(got, lang == 'zh') == norm(want, lang == 'zh'); bad += not ok
     print(('OK  ' if ok else 'DIFF'), f"{e['t']:6.2f}", want, '→', got)

@@ -1,6 +1,49 @@
 {
   "voice": "zh-CN-YunyangNeural",
   "rate": "+0%",
+  "cta": {
+    "question": "你记忆最深的一次阅兵",
+    "options": [
+      {
+        "label": "1984",
+        "mark": "dot"
+      },
+      {
+        "label": "1999",
+        "mark": "dot"
+      },
+      {
+        "label": "2009",
+        "mark": "dot"
+      },
+      {
+        "label": "2015",
+        "mark": "ring"
+      },
+      {
+        "label": "2019",
+        "mark": "dot"
+      },
+      {
+        "label": "2025",
+        "mark": "ring"
+      }
+    ],
+    "legend": [
+      {
+        "mark": "dot",
+        "label": "国庆阅兵"
+      },
+      {
+        "mark": "ring",
+        "label": "九三阅兵"
+      }
+    ],
+    "placeholder": "写下你的阅兵记忆和感想",
+    "typed": "我记得那一年……",
+    "button": "评论",
+    "footer": "评论区见"
+  },
   "lines": [
     {
       "id": "l1",
@@ -55,11 +98,11 @@
       "text": "所以，不是取消了，是还没到年份。"
     },
     {
-      "id": "l12",
+      "id": "cta1",
       "text": "你记忆最深的，是哪一次阅兵？"
     },
     {
-      "id": "l13",
+      "id": "cta2",
       "text": "有什么感想？在评论区和我们聊聊吧。"
     }
   ]

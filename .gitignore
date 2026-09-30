@@ -19,4 +19,5 @@ core/fonts/src/
 /films/*
 !/films/.gitkeep
 !/films/no-parade-2026/
+!/films/starship-14/
 **/voices/words.json

@@ -27,6 +27,7 @@ def norm(s, zh=True):
     s = s.lower().translate(TRAD)
     if zh:
         s = re.sub(r'(\d{4})\s*(?=年)', lambda m: ''.join(_D[int(c)] for c in m[1]), s)
+        s = re.sub(r'(\d+)\s*%', lambda m: '百分之' + _num(int(m[1])), s)
         s = re.sub(r'\d+', lambda m: _num(int(m[0])), s)
     s = re.sub(r'[\W_]+', '', s)
     if zh and lazy_pinyin: return ' '.join(lazy_pinyin(s))

@@ -45,7 +45,7 @@ export function track(keys) {
 export const env = (t, a, b, fi = .3, fo = .3) => Math.min(seg(t, a, a + fi), 1 - seg(t, b - fo, b));
 
 // 时间线：按镜头顺序排布，镜头时长可被配音撑长
-// shots = [{ id, dur, lines: [{ id, at }] }]，voiceDur = { lineId: 秒 }（没有配音时按字数估算）
+// shots = [{ id, dur, lines: [{ id, at }], tail? }]（tail：这个镜头最后一句说完后至少再留几秒），voiceDur = { lineId: 秒 }（没有配音时按字数估算）
 // quant > 0 时每个镜头时长向上取整到 quant 秒（例如 2 拍），剪辑点就落在音乐网格上
 // 返回 { shots: [{ ..., t0, t1 }], lines: [{ id, text, t0, t1, voice, shot }], DUR }
 export function layout(shots, lineText, voiceDur, { tail = .7, minSub = 1.8, charsPerSec = 4.2, quant = 0 } = {}) {
@@ -55,7 +55,7 @@ export function layout(shots, lineText, voiceDur, { tail = .7, minSub = 1.8, cha
     const ls = (s.lines || []).map(L => {
       const text = lineText[L.id] || '';
       const d = voiceDur[L.id] ?? Math.max(1.2, text.length / charsPerSec);
-      need = Math.max(need, L.at + d + tail);
+      need = Math.max(need, L.at + d + (s.tail ?? tail));
       return { id: L.id, text, at: L.at, d };
     });
     if (quant > 0) need = Math.ceil(need / quant - 1e-6) * quant;

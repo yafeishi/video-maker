@@ -55,19 +55,24 @@ async function fileInfo(abs, cache) {
 async function renderSegment(abs, seg, cfg, mp4, wav, hasAudio) {
   const frames = Math.max(2, Math.round((seg.out - seg.in) * cfg.fps));
   const durOut = frames / cfg.fps;
+  const ss = seg.in.toFixed(3), t = durOut.toFixed(3);
+  // -ss / -t 放在 -i 前面。放在后面时，滤镜会把时间戳归零，输出端再 seek 会把声音切成空文件，acrossfade 会卡住。
   const vf = [
     `scale=${cfg.width}:${cfg.height}:force_original_aspect_ratio=decrease:flags=lanczos`,
     `pad=${cfg.width}:${cfg.height}:(ow-iw)/2:(oh-ih)/2:black`,
     `fps=${cfg.fps}`, 'format=yuv420p', 'settb=AVTB', 'setpts=PTS-STARTPTS',
   ].join(',');
-  await ffmpeg(['-loglevel', 'error', '-y', '-i', abs, '-ss', seg.in.toFixed(3), '-t', durOut.toFixed(3), '-an', '-vf', vf, '-frames:v', String(frames), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', '-r', String(cfg.fps), mp4]);
-  const af = `aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad,atrim=0:${durOut.toFixed(3)}`;
-  if (hasAudio) await ffmpeg(['-loglevel', 'error', '-y', '-i', abs, '-ss', seg.in.toFixed(3), '-t', durOut.toFixed(3), '-vn', '-af', af, wav]);
-  else await ffmpeg(['-loglevel', 'error', '-y', '-f', 'lavfi', '-t', durOut.toFixed(3), '-i', 'anullsrc=r=48000:cl=stereo', '-af', af, wav]);
+  await ffmpeg(['-loglevel', 'error', '-y', '-ss', ss, '-t', t, '-i', abs, '-an', '-vf', vf, '-frames:v', String(frames), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', '-r', String(cfg.fps), mp4]);
+  const af = `aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad,atrim=0:${t}`;
+  const silence = () => ffmpeg(['-loglevel', 'error', '-y', '-f', 'lavfi', '-t', t, '-i', 'anullsrc=r=48000:cl=stereo', '-af', af, wav]);
+  if (hasAudio) await ffmpeg(['-loglevel', 'error', '-y', '-ss', ss, '-t', t, '-i', abs, '-vn', '-af', af, wav]);
+  else await silence();
   const vj = await ffprobe(mp4);
   let vdur = +vj.format.duration;
   const aj = await ffprobe(wav);
-  if (Math.abs((+aj.format.duration) - vdur) > 0.04) {
+  const adur = +aj.format?.duration;
+  if (!(adur > 0.05)) await silence();
+  else if (Math.abs(adur - vdur) > 0.04) {
     const tmp = wav + '.fix.wav';
     await ffmpeg(['-loglevel', 'error', '-y', '-i', wav, '-af', `apad,atrim=0:${vdur.toFixed(3)}`, tmp]);
     fs.renameSync(tmp, wav);

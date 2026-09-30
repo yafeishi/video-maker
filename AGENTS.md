@@ -23,8 +23,8 @@
 
 ## 工作流程
 
-1. **接需求**：确认风格和题目清楚后，**一次、在一条消息里**问完（docs/directing.md §1）：你没法自己决定的事实；用户有没有自己的素材（录音、指定声音、音乐、照片、标志、字体）；要不要先看分镜（默认不要）。需求里已经回答的别问。等回复后用几行话总结需求，开工，之后不再追问。
-2. **建片**：`sh tools/new-film.sh <模板> <片名>` → `films/<片名>/`。片名用小写字母、数字和连字符。
+1. **接需求**：确认风格和题目清楚后，**一次、在一条消息里**问完（docs/directing.md §1）：你没法自己决定的事实；用户有没有自己的素材（录音、指定声音、音乐、照片、标志、字体）；要不要先看分镜（默认不要）。需求里已经回答的别问。结尾互动（评论区引导）按 docs/directing.md §1 的默认值决定，不单独问。等回复后用几行话总结需求，开工，之后不再追问。
+2. **建片**：`sh tools/new-film.sh <模板> <片名>` → `films/<片名>/`。片名用小写字母、数字和连字符。要结尾互动就加 `--cta`，然后把 `lines.json` 里的 `cta` 问题、选项和 `cta1` / `cta2` 台词改成这部片自己的（docs/directing.md §3「结尾互动」）。
 3. **分镜本**：写 `films/<片名>/TREATMENT.md`（docs/directing.md §4）。
 4. **画面**：改 `film.js` 的 `SHOTS` 和绘制函数，改 `lines.json` 的台词；用真实代码渲风格帧，自己对照 `STYLE.md` 检查。
 5. **分镜（仅当用户要求）**：渲 6–9 个关键镜头拼成联系表，发给用户，**停下来等确认**。用户没要就不要停。
@@ -45,6 +45,8 @@
 sh setup.sh                                  # 装依赖（Node 包、Python venv、字体、浏览器）
 npm run studio                               # 工作台 → http://127.0.0.1:4400
 sh tools/new-film.sh keynote my-film         # 新建影片
+sh tools/new-film.sh keynote my-film --cta   # 新建影片，带结尾互动（评论区引导）
+node tools/add-cta.mjs films/my-film         # 给已有的片打开结尾互动
 node core/render/still.mjs films/my-film 3.5 12        # 静帧
 sh films/my-film/build.sh                    # 一键出片
 sh films/my-film/build.sh events audio mux   # 只重混音

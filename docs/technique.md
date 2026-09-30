@@ -137,3 +137,30 @@ S.kick() S.snare() S.clap() S.hat(open_=True)
 ## 10. 素材与署名
 
 只用 CC0、CC BY 或 OFL 的素材，每一项写进片子的 `CREDITS`，注明来源和许可。字体放在片子自己的 `fonts/` 里，中文字体裁剪子集。
+
+## 11. 结尾互动 `core/cta.js`
+
+两个模板都已接好：影片的 `lines.json` 里有 `"cta"` 块就在片尾多一个 `cta` 镜头，删掉就没有。新建时打开：`sh tools/new-film.sh keynote my-film --cta`，或工作台「新建影片」里勾选「结尾互动」；已有的片：`node tools/add-cta.mjs films/my-film`。
+
+```json
+{
+  "cta": {
+    "question": "你记忆最深的一次阅兵",
+    "options": [{ "label": "1984", "mark": "dot" }, { "label": "2015", "mark": "ring" }],
+    "legend": [{ "mark": "dot", "label": "国庆阅兵" }, { "mark": "ring", "label": "九三阅兵" }],
+    "placeholder": "写下你的阅兵记忆和感想",
+    "typed": "我记得那一年……",
+    "button": "评论",
+    "footer": "评论区见"
+  },
+  "lines": [
+    { "id": "cta1", "text": "你记忆最深的，是哪一次阅兵？" },
+    { "id": "cta2", "text": "有什么感想？在评论区和我们聊聊吧。" }
+  ]
+}
+```
+
+- `options` 可以为空，最多约 6 个；`mark` 是 `dot`（实心强调色）、`ring`（空心）或不写。纯数字标签用等宽字体。
+- 镜头时长和每个动作的时间（选项弹出、评论框升起、打字、按钮亮起）都按 `cta1` / `cta2` 的配音时长比例算，改台词不用改代码。
+- 音效（嗖、弹出、按键、铃）由 `CTA.events(sfx)` 加进 `EV`，混音时和其他音效一样处理。
+- 自己写的 `film.js` 要接上它：`makeCTA(linesDoc.cta, { beat, voiceDur, text, style })` → `SHOTS.push(CTA.shot)` → 排好时间线后 `CTA.bind(TL)`、`CTA.events(sfx)` → `DRAW.cta` 里画背景、设相机，再 `CTA.draw(g, lt, s)`。参照 `templates/keynote/film.js`。

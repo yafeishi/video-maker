@@ -3,6 +3,7 @@
 // 只跑白名单里的任务（build.sh 步骤、静帧、联系表、配音检查），项目路径限定在 templates/ 和 films/ 之下
 import fs from 'fs'; import path from 'path'; import { spawn } from 'child_process'; import { fileURLToPath } from 'url';
 import { serve, sendFile } from '../core/render/serve.mjs';
+import { addCTA } from '../tools/add-cta.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -46,7 +47,7 @@ function listProjects() {
   }
   return all;
 }
-function newFilm(template, name) {
+function newFilm(template, name, { cta = false } = {}) {
   const src = projectDir(`templates/${template}`);
   if (!src) throw new Error('模板不存在');
   if (!NAME_RE.test(name || '')) throw new Error('片名只能用小写字母、数字和连字符，例如 orange-cat');
@@ -54,6 +55,7 @@ function newFilm(template, name) {
   if (fs.existsSync(dst)) throw new Error(`films/${name} 已存在`);
   const skip = new Set(['out', 'stills', 'voices', 'events.json', 'poster.jpg']);
   fs.cpSync(src, dst, { recursive: true, filter: s => !skip.has(path.relative(src, s).split(path.sep)[0]) });
+  if (cta) addCTA(dst);
   return `films/${name}`;
 }
 
@@ -126,7 +128,7 @@ async function api(req, res, u) {
   const q = new URL(req.url, 'http://x').searchParams;
   try {
     if (u === '/api/projects' && req.method === 'GET') return json(res, 200, listProjects()), true;
-    if (u === '/api/new' && req.method === 'POST') { const b = await body(req); return json(res, 200, { path: newFilm(b.template, b.name) }), true; }
+    if (u === '/api/new' && req.method === 'POST') { const b = await body(req); return json(res, 200, { path: newFilm(b.template, b.name, { cta: !!b.cta }) }), true; }
     if (u === '/api/jobs' && req.method === 'GET') return json(res, 200, [...jobs.values()].reverse().map(pub)), true;
     if (u === '/api/jobs' && req.method === 'POST') { const b = await body(req); return json(res, 200, pub(startJob(b.path, b.task, b.args || {}))), true; }
     if (u === '/api/watch') return watch(q.get('path'), res), true;

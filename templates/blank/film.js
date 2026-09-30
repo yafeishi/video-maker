@@ -1,6 +1,7 @@
 // 空白模板：三个镜头的最小骨架。改 SHOTS、DRAW 和 lines.json，就是一部新片。
 // 页面约定（工作台和渲染器都靠它）：window.DUR / render(t) / READY，可选 EV（音效与配音事件）、CUES（字幕）、SHOTS、POSTER
 import { clamp, lerp, seg, ss, eo, spring, TAU, layout, shotAt } from '/core/lib.js';
+import { makeCTA } from '/core/cta.js';
 
 const W = 1920, H = 1080;
 const C = { bg: '#f4efe6', ink: '#1d1b18', dim: '#8a8175', acc: '#e0533b' };
@@ -20,8 +21,12 @@ const SHOTS = [
 async function loadJSON(p, fallback) { try { const r = await fetch(p, { cache: 'no-store' }); return r.ok ? await r.json() : fallback; } catch { return fallback; } }
 const linesDoc = await loadJSON('lines.json', { lines: [] });
 const TEXT = Object.fromEntries(linesDoc.lines.map(L => [L.id, L.text]));
-const TL = layout(SHOTS, TEXT, await loadJSON('voices/dur.json', {}), { quant: 2 * BEAT });
+const VDUR = await loadJSON('voices/dur.json', {});
+const CTA = linesDoc.cta ? makeCTA(linesDoc.cta, { beat: BEAT, voiceDur: VDUR, text: TEXT, style: { bg: C.bg, ink: C.ink, dim: C.dim, line: '#cfc6b8', acc: C.acc, zh: ZH, mono: ZH } }) : null;
+if (CTA) SHOTS.push(CTA.shot);
+const TL = layout(SHOTS, TEXT, VDUR, { quant: 2 * BEAT });
 const S = Object.fromEntries(TL.shots.map(s => [s.id, s]));
+if (CTA) CTA.bind(TL);
 await Promise.all([`400 40px ${ZH}`, `700 40px ${ZH}`].map(f => document.fonts.load(f, '一')));
 
 // 事件：音效名对应 core/audio/sfx.py 里的函数（tick key whoosh riser thump boom ding glitch shutter pop）
@@ -31,6 +36,7 @@ for (const L of TL.lines) EV.push({ t: L.t0, type: 'voice', id: L.id, d: L.voice
 sfx(S.open.t0 + .2, 'pop', .6);
 sfx(S.body.t0, 'whoosh', .5, { d: .6 });
 sfx(S.end.t0 + .4, 'ding', .5);
+if (CTA) CTA.events(sfx);
 EV.sort((a, b) => a.t - b.t);
 
 function text(s, x, y, { size = 40, weight = 400, color = C.ink, alpha = 1, align = 'center' } = {}) {
@@ -58,6 +64,15 @@ const DRAW = {
     bg(); cam({ x: 0, y: 0, z: 1 });
     text('完', 0, -20, { size: 160, weight: 700, alpha: eo(seg(lt, .3, 1)) * (1 - seg(lt, s.dur - .6, s.dur)) });
   },
+};
+
+// 结尾互动（lines.json 里有 "cta" 块时才出现，见 core/cta.js）：上一镜淡出，问题和评论框淡入
+if (CTA) DRAW.cta = (lt, s) => {
+  const prev = TL.shots[TL.shots.length - 2], k = ss(seg(lt, 0, .5));
+  if (k < 1 && prev) { g.save(); DRAW[prev.id](prev.dur - 1e-3, prev); g.restore(); }
+  const c = { x: 0, y: 0, z: lerp(1, 1.05, ss(lt / s.dur)) };
+  g.save(); g.globalAlpha = k; bg(); g.restore();
+  cam(c); CTA.draw(g, lt, s);
 };
 
 function captions(t) {

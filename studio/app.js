@@ -152,7 +152,7 @@ function follow(j) {
     if (d.line !== undefined) { const stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 30; log.textContent += d.line + '\n'; if (stick) log.scrollTop = log.scrollHeight; }
     if (d.end) {
       es.close(); clearInterval(timer); S.job = { ...S.job, status: d.end, code: d.code, ended: Date.now() }; setJobHead(S.job);
-      loadProjects().then(() => { if (S.cur?.mix) { audio.src = `${S.cur.mix}?${S.cur.mixTime}`; } if (d.end === 'done' && ['still', 'sheet'].includes(j.task)) tab('output'); });
+      loadProjects().then(() => { if (S.cur?.mix) { audio.src = `${S.cur.mix}?${S.cur.mixTime}`; } if (d.end === 'done' && ['still', 'sheet'].includes(j.task)) tab('output'); if (d.end === 'done' && j.task === 'copy') tab('publish'); });
       if (j.args?.steps?.some?.(s => ['events', 'voice'].includes(s)) || j.task === 'build') loadFrame();
     }
   };
@@ -199,10 +199,48 @@ function renderOutputs() {
   const p = S.cur, v = $('#film');
   if (p.film) { const src = `${p.film}?${p.mixTime}`; if (!v.src.endsWith(src)) v.src = src; v.classList.add('show'); $('#filmNone').style.display = 'none'; }
   else { v.removeAttribute('src'); v.load(); v.classList.remove('show'); $('#filmNone').style.display = ''; }
-  const links = [[p.film, '下载 mp4'], [p.srt, '字幕 .srt'], [p.mix, '混音 .wav'], [p.poster, '海报']].filter(([u]) => u);
+  const links = [[p.film, '下载 mp4'], [p.srt, '字幕 .srt'], [p.mix, '混音 .wav'], [p.poster, '海报'], [p.copy, '发布文案 .json']].filter(([u]) => u);
   $('#filmLinks').replaceChildren(...links.map(([u, t]) => el('a', { href: u, target: '_blank', download: '' }, t)));
   $('#stills').replaceChildren(...(p.stills.length ? p.stills.map(u => el('a', { href: u, target: '_blank' }, el('img', { src: u + '?' + Date.now(), loading: 'lazy' }), el('span', {}, u.split('/').pop())))
     : [el('p', { class: 'hint' }, '还没有静帧。在「渲染」里点「渲当前静帧」或「联系表」。')]));
+  renderCopy();
+}
+
+// ———————— 发布文案 ————————
+async function copyText(text, btn) {
+  try { await navigator.clipboard.writeText(text); }
+  catch { const ta = el('textarea', { style: 'position:fixed;opacity:0' }); ta.value = text; document.body.append(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  const was = btn.textContent; btn.textContent = '已复制 ✓'; btn.classList.add('ok'); setTimeout(() => { btn.textContent = was; btn.classList.remove('ok'); }, 1200);
+}
+let copyKey = '';
+async function renderCopy() {
+  const p = S.cur, key = `${p.path}@${p.copyTime}`;
+  if (key === copyKey) return; copyKey = key;
+  const state = $('#copyState'), cards = $('#copyCards');
+  if (!p.copy) {
+    state.textContent = '还没有文案。点「生成文案」，或在「渲染」里一键出片（最后会自动生成）。'; state.className = 'hint';
+    $('#copyLinks').replaceChildren(); cards.replaceChildren(); return;
+  }
+  let d; try { d = await (await fetch(`${p.copy}?${p.copyTime}`)).json(); } catch { state.textContent = 'copy.json 读取失败，重新生成一次'; return; }
+  if (S.cur?.path !== p.path) return;
+  const stale = p.copySrcTime > p.copyTime + 1000;
+  state.textContent = (stale ? '素材比文案新，建议重新生成 · ' : '') + `生成于 ${new Date(d.generated).toLocaleString()} · 素材：${d.source.files.join('、') || 'index.html'}${d.source.dur ? ` · ${d.source.dur.toFixed(1)} 秒` : ''}`;
+  state.className = 'hint' + (stale ? ' warn' : '');
+  const base = p.copy.replace(/copy\.json$/, '');
+  $('#copyLinks').replaceChildren(el('a', { href: p.copy, target: '_blank', download: '' }, 'copy.json'),
+    ...d.platforms.map(x => el('a', { href: `${base}copy-${x.id}.md`, target: '_blank', download: '' }, `${x.name} .md`)));
+  const limit = (n, l) => l ? `${n}/${Array.isArray(l) ? l[1] : l}` : `${n}`;
+  cards.replaceChildren(...d.platforms.map(x => el('div', { class: 'copy-card', 'data-platform': x.id },
+    el('div', { class: 'copy-head' }, el('b', {}, x.name), el('span', { class: 'n' }, `${x.id === 'x' ? '' : '标题 ' + limit(x.counts.title, x.limits.title) + ' · '}正文 ${limit(x.counts.body, x.limits.body)}`)),
+    x.id === 'x' ? '' : el('div', { class: 'copy-title' }, x.title),
+    el('pre', { class: 'copy-body' }, x.body),
+    ...x.warnings.map(w => el('p', { class: 'copy-warn' }, '⚠ ' + w)),
+    el('div', { class: 'btns' },
+      x.id === 'x' ? '' : el('button', { class: 'tiny', onclick: e => copyText(x.title, e.target) }, '复制标题'),
+      el('button', { class: 'tiny', onclick: e => copyText(x.body, e.target) }, x.id === 'x' ? '复制推文' : '复制正文'),
+      x.tags?.length ? el('button', { class: 'tiny', onclick: e => copyText(x.tags.join(' '), e.target) }, '复制话题') : '',
+      x.id === 'x' ? '' : el('button', { class: 'tiny primary', onclick: e => copyText(x.text, e.target) }, '全部复制')),
+    x.notes?.length ? el('p', { class: 'hint' }, x.notes.join('；')) : '')));
 }
 function renderInfo() {
   const p = S.cur;

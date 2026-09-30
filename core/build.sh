@@ -1,6 +1,6 @@
 #!/bin/sh
 # 通用出片流程：sh core/build.sh <film> [步骤 ...]（每部片的 build.sh 只是调用它）
-# 步骤：fonts voice events srt audio video mux poster check（默认全部，按此顺序）
+# 步骤：fonts voice events srt audio video mux poster copy check（默认全部，按此顺序）
 #   fonts   按用字裁剪中文字体 → <film>/fonts/NotoSansSC.woff2
 #   voice   lines.json → voices/*.wav + dur.json（edge-tts；文本没变的句子不重做）
 #   events  页面导出 DUR / EV / CUES / SHOTS → events.json
@@ -9,6 +9,7 @@
 #   video   逐帧渲染 → out/video.mp4
 #   mux     合成 + 两遍 loudnorm −14 LUFS → out/<name>.mp4
 #   poster  海报（window.POSTER 秒处，缺省取中点）→ out/poster.jpg 和 <film>/poster.jpg
+#   copy    发布文案（视频号 / X / 小红书 / 抖音）→ out/copy.json + out/copy-*.md
 #   check   时长 / 响度 / 黑帧
 # 例：只改了配乐 → build.sh events audio mux；只改了画面 → build.sh events srt video mux poster
 # 环境变量：FPS（默认 24）、WORKERS（默认 3）、GRAIN（胶片颗粒，默认 1；0 = 不加）
@@ -19,7 +20,7 @@ cd "$FILM"
 case "$FILM" in *[\ \#%]*) echo "影片路径里不要有空格、# 或 %（ffmpeg 会出错）：$FILM"; exit 1 ;; esac
 PY="$ROOT/.venv/bin/python"; [ -x "$PY" ] || PY=python3
 FPS=${FPS:-24}; WORKERS=${WORKERS:-3}; GRAIN=${GRAIN:-1}
-STEPS=${*:-fonts voice events srt audio video mux poster check}
+STEPS=${*:-fonts voice events srt audio video mux poster copy check}
 mkdir -p out
 has() { case " $STEPS " in *" $1 "*) return 0 ;; esac; return 1; }
 say() { printf '\n\033[1;36m▶ %s\033[0m\n' "$*"; }
@@ -52,4 +53,5 @@ if has poster; then
   node "$ROOT/core/render/still.mjs" "$FILM" "$T" --out out --prefix poster_ >/dev/null
   mv "out/poster_$T.jpg" out/poster.jpg && cp out/poster.jpg poster.jpg && echo "out/poster.jpg  (t=$T)"
 fi
+if has copy;   then say "copy: 发布文案"; node "$ROOT/core/publish/copy.mjs" "$FILM"; fi
 if has check;  then say "check: 成片检查"; sh "$ROOT/core/render/check.sh" "out/$NAME.mp4"; fi

@@ -93,6 +93,19 @@ video.show { display: block; }
 .stills a { display: block; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .stills img { width: 100%; display: block; }
 .stills span { display: block; font: 11px var(--mono); color: var(--dim); padding: 3px 8px; }
+.hint.warn { color: var(--warm); }
+.copy-cards { display: grid; gap: 10px; }
+.copy-card { border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 10px 12px; display: grid; gap: 8px; }
+.copy-head { display: flex; align-items: baseline; gap: 8px; }
+.copy-head b { font-size: 13px; }
+.copy-head .n { margin-left: auto; font: 11px var(--mono); color: var(--faint); }
+.copy-title { font-weight: 600; font-size: 14px; }
+.copy-body { margin: 0; font: 12.5px/1.6 var(--zh); color: #c9d2e0; white-space: pre-wrap; word-break: break-word; max-height: 220px; overflow: auto; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.copy-warn { margin: 0; font-size: 12px; color: var(--warm); }
+.copy-card .hint { margin: 0; color: var(--faint); font-size: 11px; }
+button.ok { border-color: var(--acc); color: var(--acc); }
+button.tiny.primary { color: #04110d; }
+.copy-card .btns button.tiny { margin-left: 0; }
 .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
 .tbl td { padding: 4px 6px; border-bottom: 1px solid var(--line); cursor: pointer; }
 .tbl tr:hover td { background: var(--bg3); }

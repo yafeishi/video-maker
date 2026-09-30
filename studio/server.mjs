@@ -1,6 +1,6 @@
 // 视频工作台：node studio/server.mjs [--port 4400] [--host 127.0.0.1]
 // 浏览器打开 http://127.0.0.1:4400 ：选片、实时预览 render(t)、拖时间轴、渲静帧 / 联系表 / 成片、看日志、播成片
-// 只跑白名单里的任务（build.sh 步骤、静帧、联系表、配音检查），项目路径限定在 templates/ 和 films/ 之下
+// 只跑白名单里的任务（build.sh 步骤、静帧、联系表、配音检查、发布文案），项目路径限定在 templates/ 和 films/ 之下
 import fs from 'fs'; import path from 'path'; import { spawn } from 'child_process'; import { fileURLToPath } from 'url';
 import { serve, sendFile } from '../core/render/serve.mjs';
 
@@ -9,7 +9,7 @@ const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf(k);
 const PORT = +opt('--port', process.env.STUDIO_PORT || 4400), HOST = opt('--host', process.env.STUDIO_HOST || '127.0.0.1');
 const PY = fs.existsSync(path.join(ROOT, '.venv/bin/python')) ? path.join(ROOT, '.venv/bin/python') : 'python3';
 const KINDS = { templates: 'template', films: 'film' };
-const STEPS = ['fonts', 'voice', 'events', 'srt', 'audio', 'video', 'mux', 'poster', 'check'];
+const STEPS = ['fonts', 'voice', 'events', 'srt', 'audio', 'video', 'mux', 'poster', 'copy', 'check'];
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,47}$/;
 
 // ———————— 项目 ————————
@@ -31,11 +31,12 @@ function describe(kind, name) {
   return {
     kind: KINDS[kind], name, path: rel, title,
     poster: exists(abs, 'poster.jpg') ? `/${rel}/poster.jpg` : out('poster.jpg'),
-    film: out(`${name}.mp4`), srt: out(`${name}.srt`), mix: out('mix.wav'), mixTime: mtime(path.join(abs, 'out', 'mix.wav')),
-    docs: ['STYLE.md', 'TREATMENT.md', 'CREDITS'].filter(f => exists(abs, f)).map(f => `/${rel}/${f}`),
+    film: out(`${name}.mp4`), copy: out('copy.json'), copyTime: mtime(path.join(abs, 'out', 'copy.json')), srt: out(`${name}.srt`), mix: out('mix.wav'), mixTime: mtime(path.join(abs, 'out', 'mix.wav')),
+    docs: ['STYLE.md', 'TREATMENT.md', 'CREDITS', 'publish.json'].filter(f => exists(abs, f)).map(f => `/${rel}/${f}`),
     build: exists(abs, 'build.sh'), stills,
     updated: Math.max(...['film.js', 'index.html', 'lines.json', 'poster.jpg'].map(f => mtime(path.join(abs, f)))),
     codeTime: Math.max(...['film.js', 'lines.json', 'audio.py'].map(f => mtime(path.join(abs, f)))),
+    copySrcTime: Math.max(...['TREATMENT.md', 'lines.json', 'STYLE.md', 'CREDITS', 'publish.json', 'events.json'].map(f => mtime(path.join(abs, f)))),
   };
 }
 function listProjects() {
@@ -73,6 +74,7 @@ function taskCommand(dir, task, a = {}) {
         `cd "${dir}/stills/sheet_tmp" && "${PY}" "${ROOT}/core/render/sheet.py" "../sheet_${Date.now()}.jpg" $(ls *.jpg | sort -V) --cols 5 --w 384; cd "${dir}"; rm -rf "${dir}/stills/sheet_tmp"`;
       return ['sh', ['-c', sh]];
     }
+    case 'copy': return ['node', [path.join(ROOT, 'core/publish/copy.mjs'), dir]];
     case 'asr': return ['sh', ['-c', `"${PY}" "${ROOT}/core/tts/asr_check.py" "${dir}/lines.json" "${dir}/voices" && "${PY}" "${ROOT}/core/tts/asr_mix.py" "${dir}/out/mix.wav" "${dir}/events.json"`]];
     default: throw new Error('未知任务 ' + task);
   }

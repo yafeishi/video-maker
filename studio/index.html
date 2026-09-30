@@ -58,6 +58,7 @@
     <nav class="tabs">
       <button data-tab="render" class="on">渲染</button>
       <button data-tab="output">成片</button>
+      <button data-tab="publish">发布</button>
       <button data-tab="info">信息</button>
     </nav>
 
@@ -98,6 +99,16 @@
         <h4>静帧与联系表</h4>
         <div id="stills" class="stills"></div>
       </div>
+    </div>
+
+    <div class="tab" id="tab-publish">
+      <div class="group">
+        <h4>发布文案 <small>out/copy.json</small></h4>
+        <div class="btns"><button data-job="copy" class="primary">生成文案</button></div>
+        <p id="copyState" class="hint">一键出片时会自动生成；也可以单独点「生成文案」。素材来自分镜本、台词、风格说明和 publish.json，离线模板生成。</p>
+        <div id="copyLinks" class="links"></div>
+      </div>
+      <div id="copyCards" class="copy-cards"></div>
     </div>
 
     <div class="tab" id="tab-info">

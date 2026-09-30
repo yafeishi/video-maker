@@ -23,6 +23,7 @@ npm run studio           # 打开 http://127.0.0.1:4400
 2. 点右上角「新建影片」，从模板复制一份到 `films/<片名>/`。
 3. 改 `films/<片名>/film.js`（镜头和画面）、`lines.json`（台词）、`audio.py`（配乐）。保存后预览自动刷新。
 4. 「渲染」页点「一键出片」，看日志；完成后在「成片」页播放、下载 mp4 / srt。
+5. 「发布」页有视频号、X、小红书、抖音四份文案，标题 / 正文 / 话题一键复制（见下文「发布文案」）。
 
 命令行也一样：
 
@@ -31,6 +32,33 @@ sh tools/new-film.sh keynote my-launch      # 新建
 sh films/my-launch/build.sh                 # 一键出片 → films/my-launch/out/my-launch.mp4
 sh films/my-launch/build.sh events audio mux    # 只重混音
 ```
+
+## 发布文案
+
+出片的最后一步（`build.sh` 的 `copy` 步骤）或工作台「发布」页的「生成文案」，会为每个平台写一份标题、正文和话题：
+
+```sh
+node core/publish/copy.mjs films/my-launch     # → out/copy.json + out/copy-{channels,x,xhs,douyin}.md
+sh films/my-launch/build.sh copy               # 同上，走出片流程
+```
+
+- **离线、确定性**：只用模板拼装影片自己的素材，不调用在线模型。片名和「一句话」取自 `TREATMENT.md`，台词取自 `lines.json`，风格名和气质取自 `STYLE.md`，幕后信息取自 `CREDITS`，时长取自 `events.json`（没出片时不写时长）。
+- **按平台调整**：视频号是 6–16 字短标题 + 清楚的正文和 3 个话题，不放外链、不写引流话术；X 按 280 计数（汉字算 2），中文片自动加一句英文；小红书是 20 字内带钩子的标题、分段 + emoji 的正文和 5–8 个话题；抖音是 30 字内标题 + 短描述。
+- **自检**：文案里出现广告法极限词（「最佳」「第一」「必看」等）或超出字数时，`copy.json` 的 `warnings` 和「发布」页会提示。
+- **手写覆盖**：在片子目录放 `publish.json`，例如：
+
+```json
+{
+  "titleEn": "One Frame, One Line",
+  "hookEn": "Every frame is just a function of time.",
+  "tags": ["视频工作台", "开源"],
+  "tagsEn": ["creativecoding"],
+  "link": "https://example.com",
+  "platforms": { "channels": { "title": "自己写的视频号标题" } }
+}
+```
+
+`title` / `hook` 覆盖片名和一句话，`tone`（`tech` / `warm` / `plain`）指定语气，`link` 只放进 X，`platforms.<平台>` 可直接改写 `title`、`body`、`tags`。示例见 [`templates/keynote/publish.json`](templates/keynote/publish.json)。
 
 ## 让 Agent 帮你做片
 
@@ -48,6 +76,7 @@ Agent 会按 [`AGENTS.md`](AGENTS.md) 的流程工作：问一次问题 → 写�
 | `core/lib.js` | 页面用的缓动、插值、确定性随机、时间线排布 `layout()` |
 | `core/render/` | 静帧、逐帧视频、事件导出、联系表、字幕、合成、成片检查 |
 | `core/build.sh` | 一键出片流程（fonts → voice → events → srt → audio → video → mux → poster → check） |
+| `core/publish/` | 发布文案 `copy.mjs`：视频号 / X / 小红书 / 抖音 |
 | `core/tts/` | 中文配音（edge-tts）、干声与成片混音的转写自检 |
 | `core/audio/` | 程序化拟音 `sfx.py`、配乐合成器 `synth.py`、混音 `mix.py` |
 | `core/fonts/` | JetBrains Mono、按片裁剪思源黑体的 `subset.py` |

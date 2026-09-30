@@ -29,7 +29,7 @@
 4. **画面**：改 `film.js` 的 `SHOTS` 和绘制函数，改 `lines.json` 的台词；用真实代码渲风格帧，自己对照 `STYLE.md` 检查。
 5. **分镜（仅当用户要求）**：渲 6–9 个关键镜头拼成联系表，发给用户，**停下来等确认**。用户没要就不要停。
 6. **制作**：配音 → 检查 → 配乐（`audio.py`）→ 动画 → 混音 → 渲染。一键：`sh films/<片名>/build.sh`。
-7. **自检**（docs/directing.md §11），然后交付：`films/<片名>/out/<片名>.mp4`、`.srt`、`poster.jpg`、`TREATMENT.md`，以及能一条命令重建的源码。
+7. **自检**（docs/directing.md §11），然后交付：`films/<片名>/out/<片名>.mp4`、`.srt`、`poster.jpg`、`TREATMENT.md`、发布文案 `out/copy-*.md`（需要英文或固定话题时写 `publish.json`），以及能一条命令重建的源码。
 
 用自己的语言向用户汇报进度（用户用中文就用中文）。片子里的语言按用户要求，默认用用户写字的语言。
 

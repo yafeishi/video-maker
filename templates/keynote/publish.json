@@ -1,0 +1,6 @@
+{
+  "titleEn": "One Frame, One Line",
+  "hookEn": "Every frame is just a function of time. Write render(t), get a film.",
+  "tags": ["视频工作台", "代码生成视频", "开源", "动态设计"],
+  "tagsEn": ["creativecoding", "opensource"]
+}

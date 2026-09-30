@@ -1,0 +1,8 @@
+《天空为什么是蓝色的？》素材来源
+
+画面：全部由 film.js 代码绘制（Canvas 2D），无外部图片、无视频生成。
+字体：Noto Sans SC（SIL OFL 1.1，Google Fonts），按片内用字裁剪；JetBrains Mono（SIL OFL 1.1）。
+配音：微软 Edge 在线语音 zh-CN-YunyangNeural（edge-tts 生成）。
+配乐：audio.py 用 core/audio/synth.py 程序化合成，原创。
+音效：core/audio/sfx.py 程序化合成。
+内容：瑞利散射强度与波长的四次方成反比，450 nm 与 700 nm 之比约 (700/450)^4 ≈ 5.9 倍。

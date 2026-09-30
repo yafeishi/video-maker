@@ -6,6 +6,7 @@
 import { clamp, lerp, seg, ss, eio, eo, spring, TAU, layout, shotAt } from './lib.js';
 import { makeCTA } from './cta.js';
 import { KINDS, BEAT } from './deck-kinds.js';
+import { drawFigure, FIGURES } from './deck-figures.js';
 
 const W = 1920, H = 1080;
 const ZH = '"NotoSansSC", "PingFang SC", "Microsoft YaHei", sans-serif';
@@ -72,6 +73,7 @@ const fmt = (v, dec) => v.toFixed(dec);
 for (const s of TL.shots) {
   const d = s.data || {};
   s.sp = speech(s);
+  s.vt = s.lines.map(x => LN[x.id]).filter(Boolean);
   if (s.kind === 'question') s.markT = s.sp.t0 + s.sp.d * .75;
   if (s.kind === 'answer') s.hitT = wordT(s, d.hit) ?? s.sp.t0 + s.sp.d * .35;
   if (s.kind === 'stat') s.hitT = wordT(s, d.hit) ?? s.sp.t0 + s.sp.d * .6;
@@ -99,8 +101,9 @@ for (const s of TL.shots) {
   if (k === 'stat') for (let t = s.sp.t0 + .1; t < s.hitT - .1; t += .12) sfx(t, 'tick', .18);
   if (k === 'point' || k === 'timeline' || k === 'bars') {
     sfx(s.t0 + .02, 'whoosh', .4, { d: .7 });
-    if (k === 'point') sfx(s.t0 + .45, 'shutter', .4);
-    s.itemT.forEach((t, j) => sfx(t, 'pop', .4, { pan: -.3 + .6 * j / Math.max(1, s.itemT.length - 1) }));
+    if (k === 'point' && !s.data.figure) sfx(s.t0 + .45, 'shutter', .4);
+    if (s.itemT) s.itemT.forEach((t, j) => sfx(t, 'pop', .35, { pan: -.3 + .6 * j / Math.max(1, s.itemT.length - 1) }));
+    if (s.data.figure === 'engines' && s.itemT?.[0]) sfx(s.itemT[0], 'glitch', .5);
   }
   if (k === 'bars') { const j = barsHi(s); if (j >= 0) sfx(s.itemT[j] + .7, 'ding', .3, { f: 1320 }); }
   if (k === 'quote') sfx(s.t0 + .3, 'whoosh', .3, { d: 1.2, lo: 200, hi: 2500 });
@@ -208,7 +211,23 @@ function drawAnswer(lt, s) {
   pill(d.tag, 0, d.unit ? 220 : 170, { alpha: ss(seg(a, .5, .8)) });
 }
 
+function drawFigureShot(lt, s) {
+  const d = s.data;
+  background({ x: 0, y: 0, z: 1 }); cam({ x: 0, y: 0, z: 1 });
+  const out = fadeOut(lt, s), inn = ss(seg(lt, 0, .28));
+  text(d.kicker, 0, -458, { size: 26, font: MONO, color: C.dim, spacing: 10, alpha: out * inn });
+  text(d.title, 0, -396, { size: fit(d.title, 58, 1500, { weight: 800 }), weight: 800, alpha: out * inn });
+  g.save(); g.globalAlpha *= out; drawFigure({ g, text, fit, fontFor, C, MONO, ZH }, d.figure, lt, s); g.restore();
+  if (s.kind !== 'point' || POINTS < 2) return;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const bw = 60, gap = 14, x0 = W / 2 - (POINTS * bw + (POINTS - 1) * gap) / 2;
+  for (let i = 0; i < POINTS; i++) {
+    g.fillStyle = i < s.n ? C.dim : i === s.n ? C.acc : C.line;
+    g.fillRect(x0 + i * (bw + gap), 900, bw, 4);
+  }
+}
 function drawStat(lt, s) {
+  if (s.data.figure) return drawFigureShot(lt, s);
   const d = s.data, t = s.t0 + lt, a = t - s.hitT;
   const c = { ...shake(a * 1.3), z: 1 + .04 * ss(seg(lt, 0, s.dur)) };
   background(c); cam(c);
@@ -243,6 +262,7 @@ function pointPanel(s, t) {
   text(`${String(s.n + 1).padStart(2, '0')} / ${String(POINTS).padStart(2, '0')}`, x0 - 820, -440, { size: 26, font: MONO, color: C.dim, align: 'left', alpha: st });
 }
 function drawPoint(lt, s) {
+  if (s.data.figure) return drawFigureShot(lt, s);
   const prev = TL.shots.find(x => x.kind === 'point' && x.n === s.n - 1);
   const joined = prev && prev.t1 === s.t0;
   const k = eio(seg(lt, 0, .8)), fromX = joined ? prev.n * PX : s.n * PX - PX * .6;

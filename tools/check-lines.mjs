@@ -4,6 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 import { KINDS, CAPTION_MAX, BEAT } from '../core/deck-kinds.js';
+import { FIGURES } from '../core/deck-figures.js';
 
 const dir = process.argv[2];
 if (!dir) { console.error('用法：node tools/check-lines.mjs films/<片名>'); process.exit(2); }
@@ -96,7 +97,9 @@ if (deck) {
         if (hits.some((x, k) => k && x < hits[k - 1])) E(at, '条目的 "hit" 在台词里的先后顺序和条目顺序不一致；要么调整台词顺序，要么删掉顺序不对的 hit');
       }
     }
-    for (const key of Object.keys(d)) if (!['id', 'text', 'shot', 'say', 'asr', 'voice', 'rate', 'hit'].includes(key) && !(key in K.fields)) Wn(at, `"${key}" 这个字段 ${s.kind} 镜头用不到，会被忽略。可用字段：${Object.keys(K.fields).join('、')}`);
+    if (d.figure != null && !FIGURES.includes(d.figure)) E(at, `"figure" 没有「${d.figure}」这种图。可用：${FIGURES.join('、')}`);
+    const known = ['id', 'text', 'shot', 'say', 'asr', 'voice', 'rate', 'hit', 'figure', ...(d.figure ? ['kicker', 'title'] : [])];
+    for (const key of Object.keys(d)) if (!known.includes(key) && !(key in K.fields)) Wn(at, `"${key}" 这个字段 ${s.kind} 镜头用不到，会被忽略。可用字段：${Object.keys(K.fields).join('、')}`);
     if (d.hit && !text.includes(d.hit)) E(at, `"hit" 是「${d.hit}」，但这个镜头的台词里没有这几个字。hit 要一字不差地出现在台词里`);
     if (s.kind === 'bars' && d.highlight && Array.isArray(d.items) && !d.items.some(it => it.label === d.highlight)) E(at, `"highlight" 是「${d.highlight}」，但条目里没有这个 label`);
     if (s.kind === 'quote' && d.quote && !text.includes(d.quote.slice(0, 4))) Wn(at, '台词里没有念出引语原文，引语会按时间均匀亮起；最好在台词里完整念一遍');

@@ -17,6 +17,7 @@
 | 模板 | 风格 | 适合 |
 |---|---|---|
 | `keynote` | 暗色发布会：黑底大字、一种强调色、代码与数据图形 | 产品发布、技术讲解、开源项目介绍、数据回顾 |
+| `qa` | 问答讲解：疑问 → 答案 → 分点解释 → 收束 → 结尾互动，镜头全部由 `lines.json` 生成 | 「为什么 / 是什么 / 怎么」类科普和知识讲解 |
 | `blank` | 空白骨架：三个镜头、一句配音、一层和弦垫 | 自己从头写一种新风格 |
 
 用户要的风格不在表里时：从 `blank` 开始，先写一份新的 `STYLE.md`（按 `templates/keynote/STYLE.md` 的 §1–§9 结构），再做片。
@@ -47,6 +48,7 @@ npm run studio                               # 工作台 → http://127.0.0.1:44
 sh tools/new-film.sh keynote my-film         # 新建影片
 sh tools/new-film.sh keynote my-film --cta   # 新建影片，带结尾互动（评论区引导）
 node tools/add-cta.mjs films/my-film         # 给已有的片打开结尾互动
+sh tools/new-film.sh qa why-x                # 问答讲解片（自带结尾互动，改 lines.json 即可）
 node core/render/still.mjs films/my-film 3.5 12        # 静帧
 sh films/my-film/build.sh                    # 一键出片
 sh films/my-film/build.sh events audio mux   # 只重混音

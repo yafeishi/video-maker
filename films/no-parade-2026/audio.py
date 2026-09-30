@@ -28,7 +28,7 @@ def section(t):
 music, drums = Bus(DUR + 3), Bus(DUR + 3)
 PROG = ['Dm9', 'Bbmaj7', 'Fadd9', 'C6']
 REVEAL = shot['title']['t0'] + 2 * BEAT
-PAD_V = {'hook': .2, 'age': .24, 'early': .26, 'rule': .24, 'gap': .13, 'resume': .28, 'other': .27, 'next': .24, 'title': .4, 'outro': .24}
+PAD_V = {'hook': .2, 'age': .24, 'early': .26, 'rule': .24, 'gap': .13, 'resume': .28, 'other': .27, 'next': .24, 'title': .4, 'outro': .24, 'ask': .22}
 nbeats = int(DUR / BEAT) + 1
 for b in range(nbeats):
     t = b * BEAT; sec, lt = section(t); lb = round(lt / BEAT)
@@ -37,6 +37,7 @@ for b in range(nbeats):
     if sec == 'gap': ch = 'Dm9'
     if sec == 'title': ch = 'Bbmaj9' if t < REVEAL + 6 * BEAT else 'Fadd9'
     if sec == 'outro': ch = 'Fadd9' if lb < 6 else 'Dm9'
+    if sec == 'ask': ch = ['Bbmaj7', 'C6', 'Dm9', 'Fadd9'][min(3, lb // 4)]
     notes = S.chord(ch, 3); root = notes[0] % 12
     hush = sec == 'next' and lb < 3                     # 全景拉远：三拍全停
     building = sec == 'title' and t < REVEAL
@@ -64,13 +65,13 @@ for b in range(nbeats):
         for k, h in enumerate((0, .5)):
             drums.add(S.hat((.15 if h == 0 else .09) * (.7 if sec == 'other' else 1), open_=(sec == 'resume' and h == .5 and beat == 3)), t + h * BEAT, pan=.35 if k else -.2)
 
-    if sec in ('rule', 'resume') or (sec == 'next' and not hush and t < shot['next']['t1'] - 2.0):
-        arp = [n + (12 if sec == 'rule' else 24) for n in notes[:4]]
-        step = 2 if sec != 'rule' else 1
-        if sec == 'rule' and beat % 2: continue
+    if sec in ('rule', 'resume', 'ask') or (sec == 'next' and not hush and t < shot['next']['t1'] - 2.0):
+        arp = [n + (12 if sec in ('rule', 'ask') else 24) for n in notes[:4]]
+        step = 2 if sec not in ('rule', 'ask') else 1
+        if sec in ('rule', 'ask') and beat % 2: continue
         for k in range(step):
             m = arp[(b * step + k) % len(arp)]
-            music.add(S.pluck(m, .4, v=.12 if sec == 'rule' else .2, bright=3800), t + k * BEAT / step, pan=-.35 + .7 * ((b * 2 + k) % 4) / 3)
+            music.add(S.pluck(m, .4, v=.12 if sec in ('rule', 'ask') else .2, bright=3800), t + k * BEAT / step, pan=-.35 + .7 * ((b * 2 + k) % 4) / 3)
 
 # 片名揭示后的钟琴动机：四个音，对应「逢十大庆」四个字依次升起
 for k, m in enumerate([74, 77, 81, 79]):

@@ -23,6 +23,7 @@ const SHOTS = [
   { id: 'next',   dur: 14 * BEAT, lines: [{ id: 'l10', at: 1.8 }] },
   { id: 'title',  dur: 12 * BEAT, lines: [] },
   { id: 'outro',  dur: 10 * BEAT, lines: [{ id: 'l11', at: .9 }] },
+  { id: 'ask',    dur: 16 * BEAT, lines: [{ id: 'l12', at: .9 }, { id: 'l13', at: 3.4 }] },
 ];
 
 async function loadJSON(p, fallback) { try { const r = await fetch(p, { cache: 'no-store' }); return r.ok ? await r.json() : fallback; } catch { return fallback; } }
@@ -93,6 +94,12 @@ sfx(S.next.t1 - 2.0, 'riser', .6, { d: 2.0 + 2 * BEAT });
 sfx(S.title.t0 + 2 * BEAT, 'boom', 1.0);
 for (let i = 0; i < 4; i++) sfx(S.outro.t0 + .35 + i * .15, 'pop', .3, { pan: -.3 + i * .2 });
 sfx(V('l11', 1.78), 'whoosh', .25, { d: .9, lo: 800, hi: 4000 });
+const PAST = [{ y: 1984, nat: 1 }, { y: 1999, nat: 1 }, { y: 2009, nat: 1 }, { y: 2015, nat: 0 }, { y: 2019, nat: 1 }, { y: 2025, nat: 0 }];
+const CHIP_T = i => V('l12', 1.38) + i * .12, TYPE_TXT = '我记得那一年……', TYPE_T = V('l13', 1.58), TYPE_PER = .12, SEND_T = V('l13', 2.74);
+sfx(S.ask.t0 + .05, 'whoosh', .2, { d: .8, lo: 300, hi: 1500 });
+PAST.forEach((d, i) => sfx(CHIP_T(i), 'pop', .28, { pan: -.5 + i * .2 }));
+for (let i = 0; i < TYPE_TXT.length; i++) sfx(TYPE_T + i * TYPE_PER, 'key', .18 + .08 * hash(i + 70), { pan: -.2 + i * .04 });
+sfx(SEND_T, 'ding', .22, { f: 1318, pan: .3 });
 EV.sort((a, b) => a.t - b.t);
 
 // ———————————————————— 绘制工具 ————————————————————
@@ -381,7 +388,56 @@ function shotOutro(lt, s, t) {
   }
 }
 
-const DRAW = { hook: shotHook, age: shotAge, early: shotEarly, rule: shotRule, gap: shotTimeline('gap'), resume: shotTimeline('resume'), other: shotTimeline('other'), next: shotTimeline('next'), title: shotTitle, outro: shotOutro };
+// 互动：历次阅兵的年份 + 一个正在打字的评论框
+function shotAsk(lt, s, t) {
+  const k = ss(seg(lt, 0, .5)), ka = ss(seg(lt, .4, 1.0));
+  if (k < 1) { g.save(); shotOutro(S.outro.dur - 1e-3, S.outro, S.outro.t1 - 1e-3); g.restore(); }
+  const c = { x: 0, y: 0, z: lerp(1.0, 1.05, ss(lt / s.dur)) };
+  g.save(); g.globalAlpha = k; background(c); g.restore();
+  cam(c);
+  text('你记忆最深的一次阅兵', 0, -300 + 40 * (1 - ka), { size: 72, weight: 800, color: C.ink, alpha: ka, spacing: 6 });
+  const cw = 190, ch = 84, gap = 26, x0 = -(PAST.length * cw + (PAST.length - 1) * gap) / 2, cy = -150;
+  const scan = t - (CHIP_T(PAST.length - 1) + .35), hi = scan > 0 && scan < PAST.length * .22 ? Math.floor(scan / .22) : -1;
+  PAST.forEach((d, i) => {
+    const p = clamp(pop(t, CHIP_T(i))); if (p <= 0) return;
+    const x = x0 + i * (cw + gap) + cw / 2, on = i === hi;
+    g.save(); g.globalAlpha = p; g.translate(x, cy + 14 * (1 - p)); g.scale(lerp(.8, 1, p), lerp(.8, 1, p));
+    rrect(-cw / 2, -ch / 2, cw, ch, 14); g.fillStyle = on ? 'rgba(70,240,196,.12)' : 'rgba(255,255,255,.02)'; g.fill();
+    g.strokeStyle = on ? C.acc : C.line; g.lineWidth = 2; g.stroke();
+    if (d.nat) dot(-54, 0, 9, C.acc, { glow: 12 }); else ring(-54, 0, 9, C.ink, 2.5);
+    text(`${d.y}`, 18, 1, { size: 38, font: MONO, weight: 700, color: on ? C.ink : C.dim });
+    g.restore();
+  });
+  const la = ss(seg(t, CHIP_T(PAST.length - 1), CHIP_T(PAST.length - 1) + .4));
+  dot(-150, -76, 6, C.acc, { alpha: la }); text('国庆阅兵', -136, -76, { size: 22, color: C.dim, align: 'left', alpha: la });
+  ring(40, -76, 6, C.ink, 2, { alpha: la }); text('九三阅兵', 54, -76, { size: 22, color: C.dim, align: 'left', alpha: la });
+
+  const bp = eo(seg(t, V('l13', -.2), V('l13', .4)));
+  if (bp > 0) {
+    const bw = 1200, bh = 150, by = 90 + 30 * (1 - bp);
+    g.save(); g.globalAlpha = bp;
+    rrect(-bw / 2, by - bh / 2, bw, bh, 22); g.fillStyle = 'rgba(255,255,255,.03)'; g.fill(); g.strokeStyle = C.line; g.lineWidth = 2; g.stroke();
+    const ax = -bw / 2 + 70;
+    g.strokeStyle = C.dim; g.lineWidth = 2.5; g.beginPath(); g.arc(ax, by, 38, 0, TAU); g.stroke();
+    g.fillStyle = C.dim; g.beginPath(); g.arc(ax, by - 9, 12, 0, TAU); g.fill();
+    g.beginPath(); g.arc(ax, by + 26, 22, Math.PI * 1.15, Math.PI * 1.85); g.fill();
+    g.restore();
+    const n = clamp(Math.floor((t - TYPE_T) / TYPE_PER) + 1, 0, TYPE_TXT.length), tx = ax + 70;
+    text('写下你的阅兵记忆和感想', tx, by, { size: 36, color: C.dim, align: 'left', alpha: bp * .7 * (n === 0) });
+    if (n > 0) text(TYPE_TXT.slice(0, n), tx, by, { size: 40, color: C.ink, align: 'left', alpha: bp });
+    g.font = `400 40px ${ZH}`; g.letterSpacing = '0px';
+    const cx = tx + (n > 0 ? g.measureText(TYPE_TXT.slice(0, n)).width + 6 : 0);
+    if (((t % 1) + 1) % 1 < .6 || (n > 0 && n < TYPE_TXT.length)) { g.globalAlpha = bp; g.fillStyle = C.acc; g.fillRect(cx, by - 26, 4, 52); g.globalAlpha = 1; }
+    const sp = eo(seg(t, SEND_T - .05, SEND_T + .25)), bx = bw / 2 - 120;
+    g.save(); g.globalAlpha = bp; rrect(bx - 80, by - 34, 160, 68, 34);
+    g.fillStyle = sp > 0 ? `rgba(70,240,196,${.9 * sp})` : 'rgba(0,0,0,0)'; g.fill();
+    g.strokeStyle = C.acc; g.lineWidth = 2.5; if (sp > 0) { g.shadowColor = C.acc; g.shadowBlur = 24 * sp; } g.stroke(); g.restore();
+    text('评论', bx, by + 1, { size: 32, weight: 700, color: sp > .5 ? C.bg : C.acc, alpha: bp, spacing: 4 });
+    text('评论区见', 0, 262, { size: 32, color: C.dim, spacing: 14, alpha: ss(seg(t, SEND_T + .2, SEND_T + .7)) });
+  }
+}
+
+const DRAW = { hook: shotHook, age: shotAge, early: shotEarly, rule: shotRule, gap: shotTimeline('gap'), resume: shotTimeline('resume'), other: shotTimeline('other'), next: shotTimeline('next'), title: shotTitle, outro: shotOutro, ask: shotAsk };
 
 function captions(t) {
   g.setTransform(1, 0, 0, 1, 0, 0);

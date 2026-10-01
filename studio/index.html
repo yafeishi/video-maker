@@ -232,7 +232,7 @@
     <label class="field" id="lblName">片名（文件夹名） <input id="newName" type="text" placeholder="orange-cat" pattern="[a-z0-9][a-z0-9\-]{0,47}" required></label>
     <p class="hint" id="newRules">只用小写字母、数字和连字符，例如 <code>orange-cat</code>。会复制模板到 <code>films/片名/</code>。素材片选「色块故事」，把视频放进 <code>raw/</code>。</p>
     <div class="dlg-foot">
-      <label class="check"><input type="checkbox" id="newCta"> 写入结尾互动台词（改 <code>lines.json</code>：问题 + 评论框）。上面的「加 CTA」只记在简报里。</label>
+      <label class="check"><input type="checkbox" id="newCta"><span>写入结尾互动台词（改 <code>lines.json</code>：问题 + 评论框）。上面的「加 CTA」只记在简报里。</span></label>
       <p class="hint">简报写入 <code>brief.json</code>，只记意图，不会自动生成成片。改画面和台词仍靠 <code>film.js</code>、<code>lines.json</code>，或跟 Bot 说。题目可以先空着。</p>
       <p class="err" id="newErr"></p>
       <div class="btns right"><button type="button" id="btnNewCancel" class="ghost">取消</button><button id="btnCreate" value="default" class="primary">创建</button></div>

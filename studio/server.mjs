@@ -5,6 +5,7 @@ import fs from 'fs'; import path from 'path'; import { spawn } from 'child_proce
 import { serve, sendFile } from '../core/render/serve.mjs';
 import { placeSegments } from '../core/edit/timeline.mjs';
 import { addCTA } from '../tools/add-cta.mjs';
+import { catalog, defaultOwner, defaultStatus, normalizeBrief, normalizeStatus } from './config.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -14,75 +15,8 @@ const KINDS = { templates: 'template', films: 'film' };
 const STEPS = ['fonts', 'voice', 'events', 'srt', 'audio', 'video', 'mux', 'poster', 'copy', 'check'];
 const EDIT_STEPS = ['ingest', 'shots', 'frames', 'beats', 'timeline', 'lines', 'voice', 'assemble', 'copy', 'check'];
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,47}$/;
-const LINES = ['科普', '泡芙'];
-const SCIENCE_STYLES = ['信息卡+字幕', '动画讲解', '纪录片旁白', '其他自定义'];
-const PUFF_PRESETS = ['定版日常', '出行墨镜'];
-const PLATFORMS = ['视频号', '抖音', 'X', '小红书'];
-const PLATFORM_FLAGS = { '视频号': '微信增长', 'X': '英文钩子，封面少字或无字' };
-const PUFF_CONSTRAINTS = '定版比熊泡芙，角色锁定。不要用实拍照片轮播冒充动画。';
 
-// ———————— 简报 brief.json（只记意图，不改 film.js / lines.json） ————————
-function asText(v, max, label) {
-  if (v == null || v === '') return '';
-  if (typeof v !== 'string') throw new Error(`${label}要是文字`);
-  const s = v.trim();
-  if (s.length > max) throw new Error(`${label}太长（最多 ${max} 字）`);
-  return s;
-}
-function parseDuration(v) {
-  if (v == null || v === '') return null;
-  if (typeof v === 'string' && !v.trim()) return null;
-  if (typeof v !== 'number' && typeof v !== 'string') throw new Error('时长要是 1–600 的整数秒');
-  const n = typeof v === 'number' ? v : Number(v);
-  if (!Number.isInteger(n) || n < 1 || n > 600) throw new Error('时长要是 1–600 的整数秒');
-  return n;
-}
-function normalizeBrief(raw) {
-  if (raw == null) return null;
-  if (typeof raw !== 'object' || Array.isArray(raw)) throw new Error('简报格式不对');
-  const line = raw.line == null || raw.line === '' ? '科普' : raw.line;
-  if (typeof line !== 'string' || !LINES.includes(line)) throw new Error('线路只能是「科普」或「泡芙」');
-  if (raw.style != null && raw.style !== '' && typeof raw.style !== 'string') throw new Error('风格要是文字');
-  let style = typeof raw.style === 'string' ? raw.style.trim() : '';
-  let styleCustom = '';
-  if (line === '泡芙') {
-    const preset = typeof raw.puffPreset === 'string' ? raw.puffPreset.trim() : '';
-    if (style && !PUFF_PRESETS.includes(style)) throw new Error('泡芙不能用科普风格，定版只能是「定版日常」或「出行墨镜」');
-    if (preset && !PUFF_PRESETS.includes(preset)) throw new Error('泡芙定版只能是「定版日常」或「出行墨镜」');
-    if (style && preset && style !== preset) throw new Error('泡芙的 style 和 puffPreset 要一致');
-    style = style || preset || '定版日常';
-  } else {
-    if (raw.puffPreset != null && raw.puffPreset !== '') throw new Error('科普简报不要带泡芙定版');
-    if (style && !SCIENCE_STYLES.includes(style)) throw new Error('科普风格只能是「信息卡+字幕」「动画讲解」「纪录片旁白」或「其他自定义」');
-    if (!style) style = '动画讲解';
-    if (style === '其他自定义') styleCustom = asText(raw.styleCustom, 80, '自定义风格');
-  }
-  if (raw.platforms != null && !Array.isArray(raw.platforms)) throw new Error('平台要是列表');
-  const picked = raw.platforms || [];
-  if (picked.some(p => typeof p !== 'string' || !PLATFORMS.includes(p))) throw new Error('平台只能选视频号、抖音、X、小红书');
-  const platforms = PLATFORMS.filter(p => picked.includes(p));
-  const language = asText(raw.language, 32, '语言') || 'zh-CN';
-  if (!/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/.test(language)) throw new Error('语言写成 zh-CN、en 这种代码');
-  const brief = { line, style };
-  if (line === '泡芙') brief.puffPreset = style;
-  else if (styleCustom) brief.styleCustom = styleCustom;
-  brief.topic = asText(raw.topic, 200, '题目');
-  brief.durationSec = parseDuration(raw.durationSec);
-  brief.audience = asText(raw.audience, 120, '受众');
-  brief.platforms = platforms;
-  brief.language = language;
-  brief.notes = asText(raw.notes, 2000, '备注');
-  if (raw.cta != null && typeof raw.cta !== 'boolean') throw new Error('CTA 只能是勾选或不勾选');
-  brief.cta = raw.cta === true;
-  if (line === '泡芙') {
-    brief.character = '比熊泡芙';
-    brief.constraints = PUFF_CONSTRAINTS;
-  }
-  const flags = {};
-  for (const p of platforms) if (PLATFORM_FLAGS[p]) flags[p] = PLATFORM_FLAGS[p];
-  if (Object.keys(flags).length) brief.platformFlags = flags;
-  return brief;
-}
+// ———————— 简报 brief.json 与任务 status.json（只记意图和进度，不改 film.js / lines.json，不代发） ————————
 function filmDir(rel) {
   if (typeof rel !== 'string' || !rel.startsWith('films/')) return null;
   return projectDir(rel);
@@ -107,7 +41,44 @@ function saveBrief(rel, raw) {
   const brief = normalizeBrief(raw);
   if (!brief) throw new Error('缺少简报');
   writeBriefFile(path.join(dir, 'brief.json'), brief);
+  const statusFile = path.join(dir, 'status.json');
+  if (fs.existsSync(statusFile)) {
+    let prev = null;
+    try { prev = JSON.parse(fs.readFileSync(statusFile, 'utf8')); } catch { prev = null; }
+    if (prev && !prev.ownerLocked && (prev.stage == null || prev.stage === '选题')) {
+      const next = normalizeStatus({ ...prev, owner: defaultOwner(prev.stage || '选题', brief.line) }, { line: brief.line, prev, stamp: false });
+      writeBriefFile(statusFile, next);
+    }
+  }
   return brief;
+}
+function loadStatus(abs, line) {
+  const file = path.join(abs, 'status.json');
+  if (!fs.existsSync(file)) return { ...defaultStatus(line), saved: false };
+  let data;
+  try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error('status.json 无法解析'); }
+  return { ...normalizeStatus(data, { line, prev: data, stamp: false }), saved: true };
+}
+function readStatus(rel) {
+  const dir = filmDir(rel);
+  if (!dir) throw new Error('任务只放在 films/片名');
+  let line = '';
+  try { line = readBrief(rel)?.line || ''; } catch { line = ''; }
+  return loadStatus(dir, line);
+}
+function saveStatus(rel, raw) {
+  const dir = filmDir(rel);
+  if (!dir) throw new Error('任务只放在 films/片名');
+  let line = '';
+  try { line = readBrief(rel)?.line || ''; } catch { line = ''; }
+  const file = path.join(dir, 'status.json');
+  let prev = null;
+  if (fs.existsSync(file)) {
+    try { prev = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error('status.json 无法解析'); }
+  }
+  const status = normalizeStatus(raw, { line, prev, stamp: true });
+  writeBriefFile(file, status);
+  return { ...status, saved: true };
 }
 
 // ———————— 项目 ————————
@@ -131,12 +102,32 @@ function describe(kind, name) {
     kind: KINDS[kind], filmKind, name, path: rel, title,
     poster: exists(abs, 'poster.jpg') ? `/${rel}/poster.jpg` : out('poster.jpg'),
     film: out(`${name}.mp4`), copy: out('copy.json'), copyTime: mtime(path.join(abs, 'out', 'copy.json')), srt: out(`${name}.srt`), mix: out('mix.wav'), mixTime: mtime(path.join(abs, 'out', 'mix.wav')),
-    docs: ['brief.json', 'STYLE.md', 'TREATMENT.md', 'CREDITS', 'publish.json', 'film.json'].filter(f => exists(abs, f)).map(f => `/${rel}/${f}`),
+    docs: ['brief.json', 'status.json', 'STYLE.md', 'TREATMENT.md', 'CREDITS', 'publish.json', 'film.json'].filter(f => exists(abs, f)).map(f => `/${rel}/${f}`),
     build: exists(abs, 'build.sh'), stills,
+    task: kind === 'films' ? taskOf(rel, abs) : null,
     updated: Math.max(...['film.js', 'index.html', 'lines.json', 'poster.jpg'].map(f => mtime(path.join(abs, f)))),
     codeTime: Math.max(...['film.js', 'lines.json', 'audio.py'].map(f => mtime(path.join(abs, f)))),
     copySrcTime: Math.max(...['TREATMENT.md', 'lines.json', 'STYLE.md', 'CREDITS', 'publish.json', 'events.json'].map(f => mtime(path.join(abs, f)))),
   };
+}
+function taskOf(rel, abs) {
+  let brief = null, briefError = '';
+  try { brief = readBrief(rel); } catch (e) { briefError = e.message; }
+  const line = brief?.line || '';
+  let status, statusError = '';
+  try { status = loadStatus(abs, line); } catch (e) { status = { ...defaultStatus(line), saved: false }; statusError = e.message; }
+  return {
+    line, stylePack: brief?.stylePack || '', style: brief?.style || '', voice: brief?.voice || '',
+    voiceRate: brief?.voiceRate || '', watermark: brief?.watermark || '', aspect: brief?.aspect || '',
+    stage: status.stage, owner: status.owner, ownerLocked: !!status.ownerLocked, ops: status.ops,
+    handoff: status.handoff, publish: status.publish, notes: status.notes || '', updatedAt: status.updatedAt,
+    saved: !!status.saved, briefError, statusError,
+  };
+}
+function listTasks() {
+  return listProjects().filter(p => p.kind === 'film').map(p => ({
+    path: p.path, title: p.title, ...p.task,
+  }));
 }
 function listProjects() {
   const all = [];
@@ -276,7 +267,7 @@ function watch(rel, res) {
   if (!w) {
     const subs = new Set(); let timer = null;
     const fw = fs.watch(dir, { recursive: true }, (_, f) => {
-      if (!f || /^(out|stills|voices)[\\/]|events\.json$|brief\.json(\.tmp)?$|\.wav$|~$|\.swp$|^edit[\\/](work|frames)[\\/]/.test(f)) return;
+      if (!f || /^(out|stills|voices)[\\/]|events\.json$|brief\.json(\.tmp)?$|status\.json(\.tmp)?$|\.wav$|~$|\.swp$|^edit[\\/](work|frames)[\\/]/.test(f)) return;
       clearTimeout(timer); timer = setTimeout(() => { for (const r of subs) r.write(`data: ${JSON.stringify({ file: f })}\n\n`); }, 150);
     });
     w = { subs, fw }; watchers.set(rel, w);
@@ -296,6 +287,21 @@ async function api(req, res, u) {
   const q = new URL(req.url, 'http://x').searchParams;
   try {
     if (u === '/api/projects' && req.method === 'GET') return json(res, 200, listProjects()), true;
+    if (u === '/api/catalog' && req.method === 'GET') return json(res, 200, catalog), true;
+    if (u === '/api/tasks' && req.method === 'GET') {
+      const rel = q.get('path');
+      if (!rel) return json(res, 200, { tasks: listTasks() }), true;
+      const dir = filmDir(rel);
+      if (!dir) return json(res, 404, { error: '项目不存在' }), true;
+      return json(res, 200, { path: rel, task: readStatus(rel) }), true;
+    }
+    if (u === '/api/tasks' && req.method === 'POST') {
+      const b = await body(req);
+      const rel = (typeof b.path === 'string' && b.path) || q.get('path');
+      const raw = Object.prototype.hasOwnProperty.call(b, 'task') ? b.task : (() => { const rest = { ...b }; delete rest.path; return rest; })();
+      if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('缺少任务状态');
+      return json(res, 200, { path: rel, task: saveStatus(rel, raw) }), true;
+    }
     if (u === '/api/edit' && req.method === 'GET') {
       const dir = projectDir(q.get('path'));
       if (!dir) return json(res, 404, { error: '项目不存在' }), true;

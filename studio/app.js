@@ -4,20 +4,24 @@ const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag)
 const fmt = t => { t = Math.max(0, t); const m = Math.floor(t / 60), s = t - m * 60; return `${String(m).padStart(2, '0')}:${s.toFixed(2).padStart(5, '0')}`; };
 const api = async (u, body) => { const r = await fetch(u, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j; };
 
-const S = { projects: [], cur: null, fw: null, dur: 0, t: 0, playing: false, clock0: 0, t0: 0, lastFrame: -1, tl: { shots: [], cues: [], ev: [] }, job: null, es: null, watch: null };
+const S = { projects: [], cur: null, fw: null, dur: 0, t: 0, playing: false, clock0: 0, t0: 0, lastFrame: -1, tl: { shots: [], cues: [], ev: [] }, job: null, es: null, watch: null, lineFilter: '', view: 'preview', brief: null, catalog: null };
 const view = $('#view'), audio = $('#mix'), tl = $('#tl');
 
 // ———————— 项目列表 ————————
 async function loadProjects() {
   S.projects = await api('/api/projects');
-  const films = S.projects.filter(p => p.kind === 'film'), temps = S.projects.filter(p => p.kind === 'template');
+  const films = S.projects.filter(p => p.kind === 'film' && (!S.lineFilter || p.task?.line === S.lineFilter));
+  const temps = S.projects.filter(p => p.kind === 'template');
+  const sub = p => p.task ? [p.task.line || '未分线', p.task.stage, p.task.owner].filter(Boolean).join(' · ') : '';
   const item = p => el('li', { class: S.cur?.path === p.path ? 'on' : '', 'data-path': p.path, onclick: () => select(p.path) },
     el('div', { class: 'thumb', style: p.poster ? `background-image:url("${p.poster}?${p.updated}")` : '' }, p.poster ? '' : (p.filmKind === 'footage' ? '素材' : 'render(t)')),
-    el('div', { class: 'meta' }, p.film ? el('span', { class: 'badge' }, '已出片') : (p.filmKind === 'footage' ? el('span', { class: 'badge' }, '素材') : ''), el('b', {}, p.title), el('span', {}, p.path)));
+    el('div', { class: 'meta' }, p.film ? el('span', { class: 'badge' }, '已出片') : (p.filmKind === 'footage' ? el('span', { class: 'badge' }, '素材') : ''), el('b', {}, p.title), el('span', { class: 'sub' }, sub(p) || p.path)));
   $('#listFilms').replaceChildren(...films.map(item)); $('#emptyFilms').style.display = films.length ? 'none' : '';
   $('#listTemplates').replaceChildren(...temps.map(item));
   $('#newTemplate').replaceChildren(...temps.map(p => el('option', { value: p.name }, `${p.title}（${p.name}）`)));
   if (S.cur) { S.cur = S.projects.find(p => p.path === S.cur.path) || S.cur; renderOutputs(); mixState(); }
+  renderBoard();
+  if (S.cur?.kind === 'film') paintTask(S.cur.task);
 }
 
 async function select(path, keepT = false) {
@@ -36,7 +40,8 @@ async function select(path, keepT = false) {
   else await loadFrame();
   audio.src = p.mix ? `${p.mix}?${p.mixTime}` : ''; mixState();
   renderOutputs(); attachRunningJob();
-  if (!same) { watchProject(); loadBrief(); }
+  if (!same) { S.brief = null; S.briefPath = ''; watchProject(); loadBrief(); if (p.kind === 'film') paintTask(p.task, true); }
+  renderBoard();
 }
 
 // ———————— 预览 ————————
@@ -290,7 +295,8 @@ async function renderCopy() {
   let d; try { d = await (await fetch(`${p.copy}?${p.copyTime}`)).json(); } catch { state.textContent = 'copy.json 读取失败，重新生成一次'; return; }
   if (S.cur?.path !== p.path) return;
   const stale = p.copySrcTime > p.copyTime + 1000;
-  state.textContent = (stale ? '素材比文案新，建议重新生成 · ' : '') + `生成于 ${new Date(d.generated).toLocaleString()} · 素材：${d.source.files.join('、') || 'index.html'}${d.source.dur ? ` · ${d.source.dur.toFixed(1)} 秒` : ''}`;
+  const templates = (d.platforms || []).filter(x => x.template && x.template !== 'channels' && x.template !== 'x' && x.template !== 'xhs' && x.template !== 'douyin').map(x => `${x.name} ${x.template}`);
+  state.textContent = (stale ? '素材比文案新，建议重新生成 · ' : '') + `生成于 ${new Date(d.generated).toLocaleString()} · 素材：${d.source.files.join('、') || 'index.html'}${d.source.dur ? ` · ${d.source.dur.toFixed(1)} 秒` : ''}${templates.length ? ' · 模板 ' + templates.join('、') : ''}`;
   state.className = 'hint' + (stale ? ' warn' : '');
   const base = p.copy.replace(/copy\.json$/, '');
   $('#copyLinks').replaceChildren(el('a', { href: p.copy, target: '_blank', download: '' }, 'copy.json'),
@@ -315,17 +321,20 @@ function renderInfo() {
   $('#cues').replaceChildren(...S.tl.cues.map(c => el('tr', { onclick: () => seek(c.t0) }, el('td', { class: 'n' }, fmt(c.t0)), el('td', {}, c.text))));
 }
 
-// ———————— 简报 ————————
-const SCIENCE_STYLES = ['信息卡+字幕', '动画讲解', '纪录片旁白', '其他自定义'];
-const PUFF_PRESETS = ['定版日常', '出行墨镜'];
-const STYLE_HINTS = {
-  '信息卡+字幕': '信息卡适合按台词排的模板（deck / lines）。可以用 keynote，或从 blank 另起。不会改你选的模板。',
-  '动画讲解': '动画讲解优先 keynote；有 qa 模板时也合适。不会改你选的模板。',
-  '纪录片旁白': '纪录片旁白可以从 keynote 改，或用 blank 另起风格。不会改你选的模板。',
-  '其他自定义': '自定义风格不会自动换模板。画面和台词仍改 film.js、lines.json。',
-  '定版日常': '泡芙定版日常：比熊角色锁定。不要用实拍照片轮播冒充动画。不会改你选的模板。',
-  '出行墨镜': '泡芙出行墨镜：比熊角色锁定。不要用实拍照片轮播冒充动画。不会改你选的模板。',
-};
+// ———————— 目录、简报、任务 ————————
+S.catalog = await api('/api/catalog');
+
+function packsOf(line) { return S.catalog.stylePacks.filter(p => p.line === line); }
+function packBy(line, id) { return packsOf(line).find(p => p.id === id || p.style === id) || null; }
+function lineDefaults(line) {
+  const d = S.catalog.lineDefaults[line];
+  return { stylePack: d.stylePack, styleCustom: '', voice: d.voice, voiceRate: d.voiceRate, watermarkOn: !!d.watermark, watermark: d.watermark, aspect: d.aspect };
+}
+function ownerFor(stageId, line) {
+  const stage = S.catalog.stages.find(s => s.id === stageId);
+  if (!stage) return '';
+  return typeof stage.owner === 'string' ? stage.owner : (stage.owner[line] || '');
+}
 function mountBrief(host, { radio, slot = [] } = {}) {
   host.replaceChildren($('#tplBrief').content.cloneNode(true));
   const root = host.querySelector('.brief-form');
@@ -335,31 +344,76 @@ function mountBrief(host, { radio, slot = [] } = {}) {
   const q = s => root.querySelector(s);
   const radios = () => [...root.querySelectorAll('[data-brief=line] input')];
   const styleSel = q('[data-brief=style]');
-  const mem = { '科普': '动画讲解', '泡芙': '定版日常' };
+  const voiceSel = q('[data-brief=voice]');
+  const rateSel = q('[data-brief=voiceRate]');
+  const aspectSel = q('[data-brief=aspect]');
+  const mem = {};
   let lineNow = '科普';
   const currentLine = () => radios().find(r => r.checked)?.value || '科普';
+  voiceSel.replaceChildren(...S.catalog.voices.map(v => el('option', { value: v.id }, v.label)));
+  aspectSel.replaceChildren(...S.catalog.aspects.map(a => el('option', { value: a.id }, a.label)));
+  function fillRates(value) {
+    const list = [...S.catalog.voiceRates];
+    if (value && !list.includes(value)) list.push(value);
+    rateSel.replaceChildren(...list.map(id => el('option', { value: id }, id)));
+    rateSel.value = value && list.includes(value) ? value : list[0];
+  }
   function fillStyles(line, value) {
-    const list = line === '泡芙' ? PUFF_PRESETS : SCIENCE_STYLES;
-    styleSel.replaceChildren(...list.map(id => el('option', { value: id }, id)));
-    q('[data-brief=styleLabel]').textContent = line === '泡芙' ? '定版' : '风格';
-    styleSel.value = list.includes(value) ? value : (line === '泡芙' ? '定版日常' : '动画讲解');
+    const list = packsOf(line);
+    styleSel.replaceChildren(...list.map(p => el('option', { value: p.id }, p.label)));
+    q('[data-brief=styleLabel]').textContent = line === '泡芙' ? '泡芙定版' : '视觉风格包';
+    const pick = list.some(p => p.id === value) ? value : lineDefaults(line).stylePack;
+    styleSel.value = pick;
+  }
+  function snapshot() {
+    return {
+      stylePack: styleSel.value,
+      styleCustom: q('[data-brief=styleCustom]').value,
+      voice: voiceSel.value,
+      voiceRate: rateSel.value,
+      watermarkOn: q('[data-brief=watermarkOn]').checked,
+      watermark: q('[data-brief=watermark]').value,
+      aspect: aspectSel.value,
+    };
+  }
+  function applyCombo(state) {
+    fillStyles(currentLine(), state.stylePack);
+    fillRates(state.voiceRate);
+    q('[data-brief=styleCustom]').value = state.styleCustom || '';
+    if ([...voiceSel.options].some(o => o.value === state.voice)) voiceSel.value = state.voice;
+    aspectSel.value = state.aspect || lineDefaults(currentLine()).aspect;
+    q('[data-brief=watermarkOn]').checked = !!state.watermarkOn;
+    q('[data-brief=watermark]').value = state.watermarkOn ? (state.watermark || '') : '';
   }
   function sync() {
-    const line = currentLine(), style = styleSel.value;
-    q('[data-brief=customWrap]').hidden = !(line === '科普' && style === '其他自定义');
+    const line = currentLine(), pack = packBy(line, styleSel.value);
+    q('[data-brief=customWrap]').hidden = pack?.id !== 'custom';
     q('[data-brief=durWrap]').hidden = q('[data-brief=duration]').value !== 'custom';
-    q('[data-brief=styleHint]').textContent = STYLE_HINTS[style] || '';
+    q('[data-brief=styleHint]').textContent = pack?.hint || '';
+    const on = q('[data-brief=watermarkOn]').checked;
+    q('[data-brief=watermark]').disabled = !on;
+    q('[data-brief=watermark]').placeholder = line === '泡芙' ? '不要填 Hobson 小党' : 'Hobson 小党';
+    if (!on) q('[data-brief=watermark]').value = '';
   }
   function write(b) {
     const line = b?.line === '泡芙' ? '泡芙' : '科普';
-    let style = (line === '泡芙' ? (b?.puffPreset || b?.style) : b?.style) || (line === '泡芙' ? '定版日常' : '动画讲解');
-    let styleCustom = b?.styleCustom || '';
-    if (line === '科普' && style && !SCIENCE_STYLES.includes(style)) { styleCustom = styleCustom || style; style = '其他自定义'; }
-    if (line === '泡芙' && !PUFF_PRESETS.includes(style)) style = '定版日常';
-    lineNow = line; mem[line] = style;
+    const d = lineDefaults(line);
+    let stylePack = b?.stylePack || '';
+    if (b && !stylePack && b.style) stylePack = packBy(line, b.style)?.id || (line === '科普' ? 'custom' : d.stylePack);
+    if (!b || !stylePack) stylePack = d.stylePack;
+    const state = b ? {
+      stylePack,
+      styleCustom: b.styleCustom || (stylePack === 'custom' ? (b.style && b.style !== '其他自定义' ? b.style : '') : ''),
+      voice: b.voice || d.voice,
+      voiceRate: b.voiceRate || d.voiceRate,
+      watermarkOn: !!b.watermark,
+      watermark: b.watermark || '',
+      aspect: b.aspect || d.aspect,
+    } : d;
+    lineNow = line;
+    mem[line] = state;
     radios().forEach(r => { r.checked = r.value === line; });
-    fillStyles(line, style);
-    q('[data-brief=styleCustom]').value = styleCustom;
+    applyCombo(state);
     q('[data-brief=topic]').value = b?.topic || '';
     const dur = b?.durationSec;
     if (dur == null || dur === '') { q('[data-brief=duration]').value = ''; q('[data-brief=durationCustom]').value = ''; }
@@ -374,7 +428,7 @@ function mountBrief(host, { radio, slot = [] } = {}) {
     sync();
   }
   function read() {
-    const line = currentLine(), style = styleSel.value, durSel = q('[data-brief=duration]').value;
+    const line = currentLine(), pack = packBy(line, styleSel.value), durSel = q('[data-brief=duration]').value;
     let durationSec = null;
     if (durSel === 'custom') {
       const raw = q('[data-brief=durationCustom]').value.trim();
@@ -383,7 +437,13 @@ function mountBrief(host, { radio, slot = [] } = {}) {
       if (!Number.isInteger(durationSec)) throw new Error('时长要是整数秒');
     } else if (durSel) durationSec = Number(durSel);
     const brief = {
-      line, style,
+      line,
+      style: pack?.style || '',
+      stylePack: styleSel.value,
+      voice: voiceSel.value,
+      voiceRate: rateSel.value,
+      watermark: q('[data-brief=watermarkOn]').checked ? q('[data-brief=watermark]').value.trim() : '',
+      aspect: aspectSel.value,
       topic: q('[data-brief=topic]').value.trim(),
       durationSec,
       audience: q('[data-brief=audience]').value.trim(),
@@ -392,41 +452,53 @@ function mountBrief(host, { radio, slot = [] } = {}) {
       notes: q('[data-brief=notes]').value.trim(),
       cta: q('[data-brief=cta]').checked,
     };
-    if (line === '泡芙') brief.puffPreset = style;
-    if (line === '科普' && style === '其他自定义') brief.styleCustom = q('[data-brief=styleCustom]').value.trim();
+    if (line === '泡芙') brief.puffPreset = brief.style;
+    if (pack?.id === 'custom') brief.styleCustom = q('[data-brief=styleCustom]').value.trim();
     return brief;
   }
   radios().forEach(r => r.addEventListener('change', () => {
     if (!r.checked) return;
-    mem[lineNow] = styleSel.value; lineNow = r.value;
-    fillStyles(lineNow, mem[lineNow]); sync();
+    mem[lineNow] = snapshot();
+    lineNow = r.value;
+    applyCombo(mem[lineNow] || lineDefaults(lineNow));
+    sync();
   }));
   styleSel.addEventListener('change', sync);
   q('[data-brief=duration]').addEventListener('change', sync);
+  q('[data-brief=watermarkOn]').addEventListener('change', sync);
   write(null);
-  return { read, write, setDisabled: on => root.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = on; }) };
+  return { read, write, setDisabled: on => root.querySelectorAll('input, select, textarea').forEach(node => { node.disabled = on; }) };
 }
 const newBrief = mountBrief($('#newBrief'), { radio: 'newLine', slot: [$('#lblTemplate'), $('#lblName'), $('#newRules')] });
 const filmBrief = mountBrief($('#briefHost'), { radio: 'filmLine' });
 let briefToken = 0;
+function paintCopyLine() {
+  const node = $('#copyLine');
+  const line = S.brief?.line || S.cur?.task?.line || '';
+  const pack = S.catalog.copyTemplates[line];
+  node.textContent = pack ? `${line}线：视频号用 ${pack['视频号'].id}（${pack['视频号'].owner}，${pack['视频号'].note}）X 用 ${pack.X.id}（${pack.X.owner}，${pack.X.note}）` : '';
+}
 async function loadBrief() {
   const token = ++briefToken, p = S.cur, err = $('#briefErr'), st = $('#briefStatus'), btn = $('#btnSaveBrief');
   err.textContent = '';
   if (!p || p.kind !== 'film') {
-    filmBrief.write(null); filmBrief.setDisabled(true); btn.disabled = true;
+    S.brief = null; S.briefPath = ''; filmBrief.write(null); filmBrief.setDisabled(true); btn.disabled = true;
     st.textContent = '模板没有简报。新建影片时可以填，之后在影片的「简报」里改。';
-    return;
+    paintCopyLine(); return;
   }
   filmBrief.setDisabled(false); btn.disabled = false; st.textContent = '读取简报…';
   try {
     const r = await api('/api/brief?path=' + encodeURIComponent(p.path));
     if (token !== briefToken || S.cur?.path !== p.path) return;
+    S.brief = r.brief; S.briefPath = p.path;
     filmBrief.write(r.brief);
-    st.textContent = r.brief ? `已读取 ${p.path}/brief.json。保存只更新这个文件。` : '还没有 brief.json。填好后保存，会写进这部片的文件夹。画面和台词不会被改掉。';
+    st.textContent = r.brief ? `已读取 ${p.path}/brief.json。保存只更新这个文件，不改画面。` : '还没有 brief.json。填好后保存，会写进这部片的文件夹。画面和台词不会被改掉。';
+    paintCopyLine();
   } catch (e) {
     if (token !== briefToken || S.cur?.path !== p.path) return;
-    filmBrief.write(null); err.textContent = e.message;
+    S.brief = null; S.briefPath = ''; filmBrief.write(null); err.textContent = e.message;
     st.textContent = '这份 brief.json 读不出来。改完再保存会覆盖它。';
+    paintCopyLine();
   }
 }
 $('#btnSaveBrief').onclick = async () => {
@@ -435,11 +507,174 @@ $('#btnSaveBrief').onclick = async () => {
   $('#briefErr').textContent = ''; btn.disabled = true;
   try {
     const r = await api('/api/brief', { path: p.path, brief: filmBrief.read() });
-    if (S.cur?.path === p.path) { filmBrief.write(r.brief); $('#briefStatus').textContent = `已写入 ${p.path}/brief.json`; }
+    if (S.cur?.path === p.path) { S.brief = r.brief; S.briefPath = p.path; filmBrief.write(r.brief); $('#briefStatus').textContent = `已写入 ${p.path}/brief.json`; paintCopyLine(); }
     await loadProjects(); if (S.cur) renderInfo();
   } catch (e) { $('#briefErr').textContent = e.message; }
   finally { if (S.cur?.kind === 'film') btn.disabled = false; }
 };
+
+function taskLine() { return S.briefPath === S.cur?.path && S.brief?.line ? S.brief.line : (S.cur?.task?.line || ''); }
+let taskKey = '';
+function paintTask(task, force = false) {
+  const host = $('#taskHost'), err = $('#taskErr'), st = $('#taskStatus'), btn = $('#btnSaveTask');
+  const p = S.cur;
+  if (!p || p.kind !== 'film' || !task) {
+    taskKey = ''; host.replaceChildren(el('p', { class: 'hint' }, '选一部影片后，在这里改阶段、运营态和各平台发布态。'));
+    btn.disabled = true; if (st) st.textContent = ''; return;
+  }
+  const key = [p.path, task.updatedAt || '', task.stage, task.ops, task.handoff, task.owner, task.saved ? '1' : '0', taskLine()].join('|');
+  if (!force && key === taskKey && host.querySelector('select')) { btn.disabled = false; return; }
+  taskKey = key; err.textContent = ''; btn.disabled = false;
+  const line = taskLine();
+  const stageSel = el('select', { 'data-task': 'stage' }, ...S.catalog.stages.map(s => el('option', { value: s.id }, s.id)));
+  const ownerInput = el('input', { 'data-task': 'owner', type: 'text', maxlength: '40' });
+  const lock = el('input', { 'data-task': 'ownerLocked', type: 'checkbox' });
+  const opsSel = el('select', { 'data-task': 'ops' }, ...S.catalog.ops.map(id => el('option', { value: id }, id)));
+  const handSel = el('select', { 'data-task': 'handoff' }, ...S.catalog.handoff.map(id => el('option', { value: id }, id)));
+  const notes = el('textarea', { 'data-task': 'notes', maxlength: '2000', rows: '3', placeholder: '复盘备注。播放、曝光只贴你自己看到的数，没有就留空。' });
+  stageSel.value = task.stage;
+  ownerInput.value = task.owner || ownerFor(task.stage, line);
+  lock.checked = !!task.ownerLocked;
+  opsSel.value = task.ops;
+  handSel.value = task.handoff;
+  notes.value = task.notes || '';
+  const pubs = S.catalog.platforms.map(pl => {
+    const cell = task.publish?.[pl.id] || { status: '草稿', notes: '' };
+    const status = el('select', { 'data-pub': pl.id }, ...S.catalog.publishStatus.map(id => el('option', { value: id }, id)));
+    const note = el('input', { 'data-pub-note': pl.id, type: 'text', maxlength: '200', placeholder: '播放/曝光备注，仅自贴' });
+    status.value = S.catalog.publishStatus.includes(cell.status) ? cell.status : '草稿';
+    note.value = cell.notes || '';
+    const who = [pl.copyOwner ? `文案 ${pl.copyOwner}` : '', `发布 ${pl.publishOwner}`].filter(Boolean).join(' · ');
+    return el('div', { class: 'pub-row' },
+      el('span', {}, pl.id), status,
+      el('p', { class: 'hint who' }, who),
+      note);
+  });
+  const form = el('div', { class: 'brief-form task-form' },
+    el('label', { class: 'field' }, '阶段', stageSel),
+    el('label', { class: 'field' }, '责任人（随阶段默认，可手改）', ownerInput),
+    el('label', { class: 'chk' }, lock, '锁定责任人，换阶段时不覆盖'),
+    el('p', { class: 'hint', 'data-task': 'ownerHint' }, ''),
+    el('label', { class: 'field' }, '运营态（自媒体运营，不代发）', opsSel),
+    el('p', { class: 'hint' }, '交审、P0过、改点中归运营。改点中可以回到制作，或再交审。泡芙选题建议先给运营过一眼，再进制作。'),
+    el('label', { class: 'field' }, '拷发（只由用户更新）', handSel),
+    el('div', { class: 'field' }, el('span', { class: 'lbl' }, '各平台发布态'), el('div', { class: 'pub' }, ...pubs)),
+    el('p', { class: 'hint' }, '视频号 / 抖音 / X / 小红书都是草稿、文案已交、已发、待复盘。没有人代发，也不会去登录平台。'),
+    el('label', { class: 'field' }, '任务备注', notes));
+  host.replaceChildren(form);
+  const hint = q => host.querySelector(q);
+  function refreshOwnerHint() {
+    const suggest = ownerFor(stageSel.value, line);
+    hint('[data-task=ownerHint]').textContent = suggest ? `这一阶段默认责任人：${suggest}` : '还没分线路，选题的责任人等简报选定科普或泡芙后再定。';
+  }
+  stageSel.addEventListener('change', () => {
+    const ops = S.catalog.stages.find(s => s.id === stageSel.value)?.ops;
+    if (ops) opsSel.value = ops;
+    if (!lock.checked) ownerInput.value = ownerFor(stageSel.value, line);
+    refreshOwnerHint();
+  });
+  ownerInput.addEventListener('input', () => { lock.checked = true; });
+  refreshOwnerHint();
+  st.textContent = task.saved ? `已读取 ${p.path}/status.json。` : '还没写入 status.json。改完点保存，只会写这个文件。';
+}
+function readTask() {
+  const host = $('#taskHost');
+  const q = s => host.querySelector(s);
+  const publish = {};
+  for (const pl of S.catalog.platforms) {
+    publish[pl.id] = { status: q(`[data-pub="${pl.id}"]`).value, notes: q(`[data-pub-note="${pl.id}"]`).value.trim() };
+  }
+  return {
+    stage: q('[data-task=stage]').value,
+    owner: q('[data-task=owner]').value.trim(),
+    ownerLocked: q('[data-task=ownerLocked]').checked,
+    ops: q('[data-task=ops]').value,
+    handoff: q('[data-task=handoff]').value,
+    notes: q('[data-task=notes]').value.trim(),
+    publish,
+  };
+}
+$('#btnSaveTask').onclick = async () => {
+  const p = S.cur, btn = $('#btnSaveTask');
+  if (!p || p.kind !== 'film') return;
+  $('#taskErr').textContent = ''; btn.disabled = true;
+  try {
+    const r = await api('/api/tasks', { path: p.path, task: readTask() });
+    if (S.cur?.path === p.path) {
+      S.cur.task = { ...S.cur.task, ...r.task };
+      paintTask(S.cur.task, true);
+      $('#taskStatus').textContent = `已写入 ${p.path}/status.json`;
+    }
+    await loadProjects();
+  } catch (e) { $('#taskErr').textContent = e.message; }
+  finally { if (S.cur?.kind === 'film') btn.disabled = false; }
+};
+
+function renderBoard() {
+  if (!S.catalog || !$('#boardBody')) return;
+  const stages = S.catalog.stages;
+  $('#laneLegend').replaceChildren(...stages.map(s => {
+    const owner = typeof s.owner === 'string' ? s.owner : `科普 ${s.owner['科普']} · 泡芙 ${s.owner['泡芙']}`;
+    return el('div', { class: 'lane' }, el('b', {}, s.id), el('span', {}, owner));
+  }));
+  const films = S.projects.filter(p => p.kind === 'film' && p.task && (!S.lineFilter || p.task.line === S.lineFilter));
+  if (!films.length) {
+    $('#boardBody').replaceChildren(el('p', { class: 'hint' }, S.lineFilter ? `「${S.lineFilter}」下面还没有任务。` : '还没有任务。点「新建影片」，线路选科普或泡芙。'));
+    return;
+  }
+  const order = S.lineFilter ? [S.lineFilter] : ['科普', '泡芙', ''];
+  const groups = order.map(line => ({ line, rows: films.filter(p => (p.task.line || '') === line) })).filter(g => g.rows.length);
+  const card = p => {
+    const t = p.task, at = stages.findIndex(s => s.id === t.stage);
+    return el('article', {
+      class: 'task-card' + (S.cur?.path === p.path ? ' on' : ''),
+      onclick: () => { select(p.path); tab('task'); },
+    },
+    el('div', { class: 'task-top' },
+      el('span', { class: 'tag ' + (t.line === '科普' ? 'kepu' : t.line === '泡芙' ? 'puff' : '') }, t.line || '未分线'),
+      el('b', {}, p.title),
+      el('span', { class: 'path' }, `${t.owner || '未指定'} · ${p.path}`)),
+    el('div', { class: 'rail' },
+      ...stages.map((s, n) => el('i', { class: n < at ? 'done' : n === at ? 'now' : '', title: `${s.id} · ${typeof s.owner === 'string' ? s.owner : (s.owner[t.line] || '')}` })),
+      el('span', { class: 'now-label' }, `${t.stage} · ${t.ops}`)),
+    el('div', { class: 'pills' },
+      el('span', { class: 'pill' }, t.handoff),
+      ...S.catalog.platforms.map(pl => {
+        const status = t.publish?.[pl.id]?.status || '草稿';
+        const cls = status === '已发' ? 'hot' : (status === '文案已交' || status === '待复盘' ? 'wait' : '');
+        return el('span', { class: 'pill ' + cls }, `${pl.id} ${status}`);
+      })));
+  };
+  $('#boardBody').replaceChildren(...groups.map(g => el('section', { class: 'board-group' },
+    el('h3', {}, g.line || '未分线', el('em', {}, `${g.rows.length} 条`)),
+    ...g.rows.map(card))));
+}
+function setView(mode) {
+  S.view = mode;
+  document.body.dataset.view = mode;
+  $('#board').hidden = mode !== 'board';
+  const btn = $('#btnBoard');
+  btn.textContent = mode === 'board' ? '返回预览' : '任务看板';
+  btn.classList.toggle('primary', mode === 'board');
+  if (mode === 'board') renderBoard();
+  else { fit(); drawTimeline(); }
+}
+function setLineFilter(line) {
+  S.lineFilter = line;
+  document.querySelectorAll('#lineFilters button').forEach(b => b.classList.toggle('on', b.dataset.line === line));
+  const films = S.projects.filter(p => p.kind === 'film' && (!line || p.task?.line === line));
+  const temps = S.projects.filter(p => p.kind === 'template');
+  const sub = p => p.task ? [p.task.line || '未分线', p.task.stage, p.task.owner].filter(Boolean).join(' · ') : '';
+  const item = p => el('li', { class: S.cur?.path === p.path ? 'on' : '', 'data-path': p.path, onclick: () => select(p.path) },
+    el('div', { class: 'thumb', style: p.poster ? `background-image:url("${p.poster}?${p.updated}")` : '' }, p.poster ? '' : (p.filmKind === 'footage' ? '素材' : 'render(t)')),
+    el('div', { class: 'meta' }, p.film ? el('span', { class: 'badge' }, '已出片') : (p.filmKind === 'footage' ? el('span', { class: 'badge' }, '素材') : ''), el('b', {}, p.title), el('span', { class: 'sub' }, sub(p) || p.path)));
+  $('#listFilms').replaceChildren(...films.map(item));
+  $('#emptyFilms').style.display = films.length ? 'none' : '';
+  $('#listTemplates').replaceChildren(...temps.map(item));
+  renderBoard();
+}
+document.querySelectorAll('#lineFilters button').forEach(b => b.onclick = () => setLineFilter(b.dataset.line));
+$('#btnBoard').onclick = () => setView(S.view === 'board' ? 'preview' : 'board');
 
 // ———————— 新建 ————————
 $('#btnNew').onclick = () => { $('#newErr').textContent = ''; newBrief.write(null); $('#newName').value = ''; $('#dlgNew').showModal(); $('#newBrief [data-brief=topic]').focus(); };
@@ -449,7 +684,7 @@ $('#formNew').addEventListener('submit', async e => {
   e.preventDefault();
   try {
     const r = await api('/api/new', { template: $('#newTemplate').value, name: $('#newName').value.trim(), brief: newBrief.read(), cta: $('#newCta').checked });
-    $('#dlgNew').close(); await loadProjects(); await select(r.path); tab('brief');
+    $('#dlgNew').close(); await loadProjects(); await select(r.path); tab('brief'); setView('preview');
   } catch (err) { $('#newErr').textContent = err.message; }
 });
 
@@ -472,5 +707,6 @@ new ResizeObserver(drawTimeline).observe(tl);
 await loadProjects();
 const want = decodeURIComponent(location.hash.slice(1));
 const first = S.projects.find(p => p.path === want) || S.projects.find(p => p.kind === 'film') || S.projects[0];
-if (first) select(first.path);
+if (first) await select(first.path);
+setView('board');
 fit();

@@ -41,7 +41,7 @@ for b in range(nbeats):
     # 和弦垫：每小节或段落开头起一个，前后交叠
     if (beat == 0 or lb == 0) and not breath and not building:
         length = min(4 - beat, 4) * BEAT
-        v = {'type': .22, 'axis': .26, 'sheet': .28, 'fps': .28, 'lanes': .3, 'title': .42, 'outro': .26}[sec]
+        v = {'type': .22, 'axis': .26, 'sheet': .28, 'fps': .28, 'lanes': .3, 'title': .42, 'outro': .26}.get(sec, .24)
         music.add(S.pad([n for n in notes if n >= 48] + [notes[1] + 12], length, v=v, bright=2600 if sec == 'title' else 1700), t, pan=0)
 
     # 贝斯
@@ -84,7 +84,7 @@ music_x = np.asarray(music) + drums_x * .9
 fx = Bus(DUR + 3)
 for e in EV:
     if e['type'] != 'sfx': continue
-    kw = {k: e[k] for k in ('d',) if k in e}
+    kw = {k: e[k] for k in ('d', 'f', 'lo', 'hi') if k in e}
     low = .6 if e['name'] in ('boom', 'thump') else 1       # 低频冲击本身能量大，按响度而不是峰值来平衡
     fx.add(sfx.make(e['name'], **kw), e['t'], gain=e.get('gain', 1) * .7 * low, pan=e.get('pan', 0))
 room = Bus(DUR + 3); room.add(sfx.room(DUR + 1, v=.035), 0)

@@ -1,0 +1,13 @@
+《走出地球》素材来源
+
+画面：全部由 core/deck.js 代码绘制（Canvas 2D），无外部图片、无视频生成。
+字体：Noto Sans SC（SIL OFL 1.1，Google Fonts），按片内用字裁剪；JetBrains Mono（SIL OFL 1.1）。
+配音：微软 Edge 在线语音 zh-CN-YunyangNeural（edge-tts 生成）。
+配乐与音效：core/audio/deck.py、synth.py、sfx.py 程序化合成，原创。
+
+内容：
+- 1957 年斯普特尼克 1 号；1961 年加加林首次载人航天；1969 年阿波罗 11 号登月；1977 年旅行者号发射；
+  2003 年神舟五号杨利伟；2020 年嫦娥五号月球采样返回；2021 年祝融号火星车着陆。
+- 引语：尼尔·阿姆斯特朗 1969 年 7 月 20 日踏上月面时的话（"That's one small step for man, one giant leap for mankind."），中文为通行译法。
+- 行星赤道直径（地球 = 1）：NASA Planetary Fact Sheet。
+- 2006 年国际天文学联合会（IAU）第 26 届大会决议，冥王星归为矮行星。

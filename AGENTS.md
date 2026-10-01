@@ -6,6 +6,8 @@
 
 ## 先读
 
+用数据驱动模板（`qa`、`review`，见下面「两种做法」）时，只需要读 [`docs/lines.md`](docs/lines.md) 和 `docs/directing.md` 的 §1、§3；下面三份是手写画面时的完整参考。
+
 1. [`docs/directing.md`](docs/directing.md)：怎么导（故事、声音、节奏、镜头、表演、自检）。
 2. [`docs/technique.md`](docs/technique.md)：怎么做（页面约定、渲染、配音、配乐、混音、审片）。
 3. 选定模板的 `templates/<模板>/STYLE.md`。§1–§8 定义风格，§9 讲示例片怎么做的。示例片是参考实现：学它的技法、复用它的代码，但不要照搬它的故事。
@@ -17,6 +19,8 @@
 | 模板 | 风格 | 适合 |
 |---|---|---|
 | `keynote` | 暗色发布会：黑底大字、一种强调色、代码与数据图形 | 产品发布、技术讲解、开源项目介绍、数据回顾 |
+| `qa` | 问答讲解：疑问 → 答案 → 分点解释 → 收束 → 结尾互动。**只填 lines.json** | 「为什么 / 是什么 / 怎么」类科普和知识讲解 |
+| `review` | 回顾盘点：片名 → 时间线 → 引语 → 柱状图 / 大数字 → 收束 → 结尾互动。**只填 lines.json** | 历程回顾、年度盘点、数据对比、排行 |
 | `blank` | 空白骨架：三个镜头、一句配音、一层和弦垫 | 自己从头写一种新风格 |
 | `footage-demo` | 素材剪辑：镜头检测、节拍、ffmpeg 组装，默认横屏 | 用户带来的 mp4/mov。不是 render(t) |
 
@@ -34,10 +38,23 @@
 
 标成 `bot` 或 `human` 的 beats / timeline / lines，重跑不会覆盖。不要设 `FORCE=1`，除非用户要推倒重来。默认横屏 1920×1080。竖屏只改 `film.json` 的宽高还不够用，安全区还没做，先跟用户说。
 
+## 两种做法
+
+**优先用数据驱动模板（`qa`、`review`）**：整部片由 `lines.json` 生成，不写任何代码，任何能写 JSON 的模型都能做好。只要题目能拆成片名、问题、答案、要点、时间线、柱状图、大数字、引语、收束这几种镜头（`docs/lines.md`），就用这条路：
+
+1. `sh tools/new-film.sh qa|review <片名>`
+2. 查清事实，照 `docs/lines.md` 的例子改 `films/<片名>/lines.json`，改 `TREATMENT.md` 和 `CREDITS`。
+3. `sh tools/make.sh films/<片名>`：检查 → 出片 → 配音检查 → 联系表。按它最后列出的问题改 `lines.json`，重跑，直到没有 ✗ 和 DIFF。
+4. 看 `out/sheet.jpg` 联系表，确认没有字出框、重叠。交付。
+
+**不要改 `film.js`、`audio.py`、`core/`**。检查器说字太多就删字，说条目太多就拆镜头。
+
+**只有题目需要专门画的画面**（产品界面、角色、地图、一个抽象概念的变形）时，才用 `keynote` / `blank` 手写绘制函数，按下面的完整工作流程做。
+
 ## 工作流程
 
-1. **接需求**：确认风格和题目清楚后，**一次、在一条消息里**问完（docs/directing.md §1）：你没法自己决定的事实；用户有没有自己的素材（录音、指定声音、音乐、照片、标志、字体）；要不要先看分镜（默认不要）。需求里已经回答的别问。等回复后用几行话总结需求，开工，之后不再追问。
-2. **建片**：`sh tools/new-film.sh <模板> <片名>` → `films/<片名>/`。片名用小写字母、数字和连字符。
+1. **接需求**：确认风格和题目清楚后，**一次、在一条消息里**问完（docs/directing.md §1）：你没法自己决定的事实；用户有没有自己的素材（录音、指定声音、音乐、照片、标志、字体）；要不要先看分镜（默认不要）。需求里已经回答的别问。结尾互动（评论区引导）按 docs/directing.md §1 的默认值决定，不单独问。等回复后用几行话总结需求，开工，之后不再追问。
+2. **建片**：`sh tools/new-film.sh <模板> <片名>` → `films/<片名>/`。片名用小写字母、数字和连字符。要结尾互动就加 `--cta`，然后把 `lines.json` 里的 `cta` 问题、选项和 `cta1` / `cta2` 台词改成这部片自己的（docs/directing.md §3「结尾互动」）。
 3. **分镜本**：写 `films/<片名>/TREATMENT.md`（docs/directing.md §4）。
 4. **画面**：改 `film.js` 的 `SHOTS` 和绘制函数，改 `lines.json` 的台词；用真实代码渲风格帧，自己对照 `STYLE.md` 检查。
 5. **分镜（仅当用户要求）**：渲 6–9 个关键镜头拼成联系表，发给用户，**停下来等确认**。用户没要就不要停。
@@ -58,6 +75,12 @@
 sh setup.sh                                  # 装依赖（Node 包、Python venv、字体、浏览器）
 npm run studio                               # 工作台 → http://127.0.0.1:4400
 sh tools/new-film.sh keynote my-film         # 新建影片
+sh tools/new-film.sh keynote my-film --cta   # 新建影片，带结尾互动（评论区引导）
+node tools/add-cta.mjs films/my-film         # 给已有的片打开结尾互动
+sh tools/new-film.sh qa why-x                # 问答讲解片（自带结尾互动，改 lines.json 即可）
+sh tools/new-film.sh review my-review        # 回顾盘点片（同上）
+node tools/check-lines.mjs films/my-film     # 检查 lines.json，报错会写怎么改
+sh tools/make.sh films/my-film               # 检查 + 出片 + 配音检查 + 联系表，一条命令
 node core/render/still.mjs films/my-film 3.5 12        # 静帧
 sh films/my-film/build.sh                    # 一键出片
 sh films/my-film/build.sh events audio mux   # 只重混音

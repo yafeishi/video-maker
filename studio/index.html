@@ -155,6 +155,7 @@
     <h3>新建影片</h3>
     <label>模板 <select id="newTemplate"></select></label>
     <label>片名（文件夹名） <input id="newName" placeholder="orange-cat" pattern="[a-z0-9][a-z0-9\-]{0,47}" required></label>
+    <label class="check"><input type="checkbox" id="newCta"> 结尾互动：片尾加一段评论区引导（一个问题 + 评论框，配两句台词）</label>
     <p class="hint">只用小写字母、数字和连字符。代码片会复制模板到 <code>films/片名/</code>，然后改 <code>film.js</code>、<code>lines.json</code>、<code>audio.py</code>。素材片选「色块故事」，把视频放进 <code>raw/</code>。</p>
     <p class="err" id="newErr"></p>
     <div class="btns right"><button value="cancel" class="ghost">取消</button><button id="btnCreate" value="default" class="primary">创建</button></div>

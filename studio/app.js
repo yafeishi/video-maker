@@ -320,7 +320,7 @@ $('#btnNew').onclick = () => { $('#newErr').textContent = ''; $('#dlgNew').showM
 $('#formNew').addEventListener('submit', async e => {
   if (e.submitter?.value !== 'default') return;
   e.preventDefault();
-  try { const r = await api('/api/new', { template: $('#newTemplate').value, name: $('#newName').value.trim() }); $('#dlgNew').close(); await loadProjects(); await select(r.path); }
+  try { const r = await api('/api/new', { template: $('#newTemplate').value, name: $('#newName').value.trim(), cta: $('#newCta').checked }); $('#dlgNew').close(); await loadProjects(); await select(r.path); }
   catch (err) { $('#newErr').textContent = err.message; }
 });
 

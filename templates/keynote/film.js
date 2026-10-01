@@ -1,6 +1,7 @@
 // 《一帧一行》—— 暗色发布会风格示例片
 // 页面约定：window.DUR / window.render(t) / window.READY / window.EV / window.CUES（见 docs/technique.md）
 import { clamp, lerp, seg, ss, eio, eo, ei, back, spring, hash, TAU, layout, shotAt } from '/core/lib.js';
+import { makeCTA } from '/core/cta.js';
 
 const W = 1920, H = 1080;
 const C = { bg: '#07090d', ink: '#e9edf3', dim: '#667085', faint: '#1b2231', line: '#2a3345', acc: '#46f0c4', warm: '#ffb14a' };
@@ -27,8 +28,11 @@ async function loadJSON(p, fallback) { try { const r = await fetch(p, { cache: '
 const linesDoc = await loadJSON('lines.json', { lines: [] });
 const TEXT = Object.fromEntries(linesDoc.lines.map(L => [L.id, L.text]));
 const VDUR = await loadJSON('voices/dur.json', {});
+const CTA = linesDoc.cta ? makeCTA(linesDoc.cta, { beat: BEAT, voiceDur: VDUR, text: TEXT, style: { ...C, zh: ZH, mono: MONO } }) : null;
+if (CTA) SHOTS.push(CTA.shot);
 const TL = layout(SHOTS, TEXT, VDUR, { quant: 2 * BEAT });
 const S = Object.fromEntries(TL.shots.map(s => [s.id, s]));
+if (CTA) CTA.bind(TL);
 
 // ———————————————————— 字体与版面测量 ————————————————————
 await Promise.all([`400 40px ${ZH}`, `700 40px ${ZH}`, `900 40px ${ZH}`, `400 40px ${MONO}`, `700 40px ${MONO}`].map(f => document.fonts.load(f, '一帧abc')));
@@ -64,6 +68,7 @@ sfx(S.title.t0 - .1, 'riser', .75, { d: 4 * BEAT + .1 });
 sfx(S.title.t0 + 4 * BEAT, 'boom', 1.0);
 sfx(S.outro.t0 + .1, 'whoosh', .3, { d: .8 });
 for (let i = 0; i < OUT.length; i++) sfx(S.outro.t0 + TYPE7.start + i * TYPE7.per, 'key', .5 + .3 * hash(i + 40), { pan: (i / OUT.length - .5) * .4 });
+if (CTA) CTA.events(sfx);
 EV.sort((a, b) => a.t - b.t);
 
 // ———————————————————— 绘制工具 ————————————————————
@@ -299,6 +304,15 @@ function shotOutro(lt, s) {
 }
 
 const DRAW = { type: shotType, axis: shotAxis, sheet: shotSheet, fps: shotFps, lanes: shotLanes, title: shotTitle, outro: shotOutro };
+// 结尾互动（lines.json 里有 "cta" 块时才出现，见 core/cta.js）：上一镜淡出，问题和评论框淡入
+if (CTA) DRAW.cta = (lt, s) => {
+  const prev = TL.shots[TL.shots.length - 2], k = ss(seg(lt, 0, .5));
+  if (k < 1 && prev) { g.save(); DRAW[prev.id](prev.dur - 1e-3, prev); g.restore(); }
+  const c = { x: 0, y: 0, z: lerp(1, 1.05, ss(lt / s.dur)) };
+  g.save(); g.globalAlpha = k; background(c); g.restore();
+  cam(c); CTA.draw(g, lt, s);
+};
+
 
 // 字幕：画在屏幕空间，底部居中
 function captions(t) {

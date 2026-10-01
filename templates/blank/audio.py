@@ -22,7 +22,7 @@ for k in range(int(DUR / bar) + 1):
 fx = Bus(DUR + 3)
 for e in EV:
     if e['type'] == 'sfx':
-        fx.add(sfx.make(e['name'], **({'d': e['d']} if 'd' in e else {})), e['t'], gain=e.get('gain', 1) * .6, pan=e.get('pan', 0))
+        fx.add(sfx.make(e['name'], **{k: e[k] for k in ('d', 'f', 'lo', 'hi') if k in e}), e['t'], gain=e.get('gain', 1) * .6, pan=e.get('pan', 0))
 
 vo = Bus(DUR + 3); spans = []
 for e in EV:

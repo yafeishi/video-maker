@@ -137,3 +137,39 @@ S.kick() S.snare() S.clap() S.hat(open_=True)
 ## 10. 素材与署名
 
 只用 CC0、CC BY 或 OFL 的素材，每一项写进片子的 `CREDITS`，注明来源和许可。字体放在片子自己的 `fonts/` 里，中文字体裁剪子集。
+
+## 11. 结尾互动 `core/cta.js`
+
+两个模板都已接好：影片的 `lines.json` 里有 `"cta"` 块就在片尾多一个 `cta` 镜头，删掉就没有。新建时打开：`sh tools/new-film.sh keynote my-film --cta`，或工作台「新建影片」里勾选「结尾互动」；已有的片：`node tools/add-cta.mjs films/my-film`。
+
+```json
+{
+  "cta": {
+    "question": "你记忆最深的一次阅兵",
+    "options": [{ "label": "1984", "mark": "dot" }, { "label": "2015", "mark": "ring" }],
+    "legend": [{ "mark": "dot", "label": "国庆阅兵" }, { "mark": "ring", "label": "九三阅兵" }],
+    "placeholder": "写下你的阅兵记忆和感想",
+    "typed": "我记得那一年……",
+    "button": "评论",
+    "footer": "评论区见"
+  },
+  "lines": [
+    { "id": "cta1", "text": "你记忆最深的，是哪一次阅兵？" },
+    { "id": "cta2", "text": "有什么感想？在评论区和我们聊聊吧。" }
+  ]
+}
+```
+
+- `options` 可以为空，最多约 6 个；`mark` 是 `dot`（实心强调色）、`ring`（空心）或不写。纯数字标签用等宽字体。
+- 镜头时长和每个动作的时间（选项弹出、评论框升起、打字、按钮亮起）都按 `cta1` / `cta2` 的配音时长比例算，改台词不用改代码。
+- 音效（嗖、弹出、按键、铃）由 `CTA.events(sfx)` 加进 `EV`，混音时和其他音效一样处理。
+- 自己写的 `film.js` 要接上它：`makeCTA(linesDoc.cta, { beat, voiceDur, text, style })` → `SHOTS.push(CTA.shot)` → 排好时间线后 `CTA.bind(TL)`、`CTA.events(sfx)` → `DRAW.cta` 里画背景、设相机，再 `CTA.draw(g, lt, s)`。参照 `templates/keynote/film.js`。
+
+## 12. 数据驱动镜头 `core/deck.js`
+
+`qa`、`review` 模板的 `film.js` 只有一行 `import '/core/deck.js';`，`audio.py` 只调用 `core/audio/deck.py` 的 `mix()`。整部片由 `lines.json` 生成，写法见 [`docs/lines.md`](lines.md)。
+
+- **镜头类型表** `core/deck-kinds.js`：每种镜头的最短拍数、第一句台词的起点、收尾时长（`tail`）、配乐角色（`music`）、字段和字数建议。`core/deck.js` 按它排时间线，`tools/check-lines.mjs` 按它检查。加新镜头类型时两边一起改：表里加一项，`deck.js` 里加一个 `drawXxx(lt, s)` 并登记到 `DRAW`，必要时在事件循环里加音效。
+- **对齐到台词**：`wordT(s, 词)` 按字数在这句配音里线性估算说到这个词的时刻；条目的 `hit`、答案和大数字的 `hit`、引语逐字亮起都用它。
+- **配乐**：按镜头的 `music` 角色（calm / hit / groove / finale / outro）逐拍决定乐器，所以镜头数量和顺序随意。
+- **自检** `tools/make.sh`：检查 `lines.json` → `build.sh` 全流程 → `asr_mix.py`（默认 medium 模型；`ASR_MODEL=small` 更快）→ 每个镜头两帧拼成 `out/sheet.jpg`。配音检查结果分三档：OK、NEAR（只差一两个音节，多半是识别模型听错）、DIFF（要处理）。

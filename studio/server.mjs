@@ -4,6 +4,7 @@
 import fs from 'fs'; import path from 'path'; import { spawn } from 'child_process'; import { fileURLToPath } from 'url';
 import { serve, sendFile } from '../core/render/serve.mjs';
 import { placeSegments } from '../core/edit/timeline.mjs';
+import { addCTA } from '../tools/add-cta.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -50,7 +51,7 @@ function listProjects() {
   }
   return all;
 }
-function newFilm(template, name) {
+function newFilm(template, name, { cta = false } = {}) {
   const src = projectDir(`templates/${template}`);
   if (!src) throw new Error('模板不存在');
   if (!NAME_RE.test(name || '')) throw new Error('片名只能用小写字母、数字和连字符，例如 orange-cat');
@@ -65,6 +66,7 @@ function newFilm(template, name) {
     if (rel === path.join('edit', 'frames') || rel.startsWith(path.join('edit', 'frames') + path.sep)) return false;
     return true;
   } });
+  if (cta) addCTA(dst);
   return `films/${name}`;
 }
 
@@ -202,7 +204,7 @@ async function api(req, res, u) {
       if (!dir) return json(res, 404, { error: '项目不存在' }), true;
       return json(res, 200, editStatus(dir, q.get('path'))), true;
     }
-    if (u === '/api/new' && req.method === 'POST') { const b = await body(req); return json(res, 200, { path: newFilm(b.template, b.name) }), true; }
+    if (u === '/api/new' && req.method === 'POST') { const b = await body(req); return json(res, 200, { path: newFilm(b.template, b.name, { cta: !!b.cta }) }), true; }
     if (u === '/api/jobs' && req.method === 'GET') return json(res, 200, [...jobs.values()].reverse().map(pub)), true;
     if (u === '/api/jobs' && req.method === 'POST') { const b = await body(req); return json(res, 200, pub(startJob(b.path, b.task, b.args || {}))), true; }
     if (u === '/api/watch') return watch(q.get('path'), res), true;

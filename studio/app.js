@@ -266,6 +266,7 @@ function mountBrief(host, { radio, slot = [] } = {}) {
     root.querySelectorAll('[data-brief=platforms] input').forEach(i => { i.checked = picked.has(i.value); });
     q('[data-brief=language]').value = b?.language || 'zh-CN';
     q('[data-brief=notes]').value = b?.notes || '';
+    q('[data-brief=cta]').checked = b?.cta === true;
     sync();
   }
   function read() {
@@ -285,6 +286,7 @@ function mountBrief(host, { radio, slot = [] } = {}) {
       platforms: [...root.querySelectorAll('[data-brief=platforms] input:checked')].map(i => i.value),
       language: q('[data-brief=language]').value.trim() || 'zh-CN',
       notes: q('[data-brief=notes]').value.trim(),
+      cta: q('[data-brief=cta]').checked,
     };
     if (line === '泡芙') brief.puffPreset = style;
     if (line === '科普' && style === '其他自定义') brief.styleCustom = q('[data-brief=styleCustom]').value.trim();

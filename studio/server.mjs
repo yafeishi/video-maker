@@ -69,6 +69,8 @@ function normalizeBrief(raw) {
   brief.platforms = platforms;
   brief.language = language;
   brief.notes = asText(raw.notes, 2000, '备注');
+  if (raw.cta != null && typeof raw.cta !== 'boolean') throw new Error('CTA 只能是勾选或不勾选');
+  brief.cta = raw.cta === true;
   if (line === '泡芙') {
     brief.character = '比熊泡芙';
     brief.constraints = PUFF_CONSTRAINTS;

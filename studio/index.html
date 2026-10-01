@@ -172,6 +172,13 @@
     <label class="field">备注
       <textarea data-brief="notes" maxlength="2000" rows="3" placeholder="给人和 Bot 看的补充，不会自动生成画面"></textarea>
     </label>
+    <div class="field">
+      <span class="lbl">片尾</span>
+      <div class="picks">
+        <label class="chk" title="只记意图，不会自动写进台词"><input type="checkbox" data-brief="cta"> 加 CTA（可选）</label>
+      </div>
+    </div>
+    <p class="hint">勾选表示片尾希望有一句行动号召。只写在简报里，不会改 <code>lines.json</code>。</p>
   </div>
 </template>
 
@@ -182,9 +189,11 @@
     <label class="field" id="lblTemplate">模板 <select id="newTemplate"></select></label>
     <label class="field" id="lblName">片名（文件夹名） <input id="newName" type="text" placeholder="orange-cat" pattern="[a-z0-9][a-z0-9\-]{0,47}" required></label>
     <p class="hint" id="newRules">只用小写字母、数字和连字符，例如 <code>orange-cat</code>。会复制模板到 <code>films/片名/</code>。</p>
-    <p class="hint">简报写入 <code>brief.json</code>，只记意图，不会自动生成成片。改画面和台词仍靠 <code>film.js</code>、<code>lines.json</code>，或跟 Bot 说。题目可以先空着。</p>
-    <p class="err" id="newErr"></p>
-    <div class="btns right"><button type="button" id="btnNewCancel" class="ghost">取消</button><button id="btnCreate" value="default" class="primary">创建</button></div>
+    <div class="dlg-foot">
+      <p class="hint">简报写入 <code>brief.json</code>，只记意图，不会自动生成成片。改画面和台词仍靠 <code>film.js</code>、<code>lines.json</code>，或跟 Bot 说。题目可以先空着。</p>
+      <p class="err" id="newErr"></p>
+      <div class="btns right"><button type="button" id="btnNewCancel" class="ghost">取消</button><button id="btnCreate" value="default" class="primary">创建</button></div>
+    </div>
   </form>
 </dialog>
 

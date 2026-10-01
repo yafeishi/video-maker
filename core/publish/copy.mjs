@@ -26,6 +26,8 @@ export function collect(dir) {
   const pub = mark('publish.json', readJSON('publish.json')) || {};
   const treat = read('TREATMENT.md'), style = read('STYLE.md'), credits = read('CREDITS');
   const html = read('index.html'), ev = readJSON('events.json'), lj = readJSON('lines.json');
+  const brief = readJSON('brief.json');
+  const line = brief?.line === '科普' || brief?.line === '泡芙' ? brief.line : '';
 
   const htmlTitle = ((/<title>([^<]*)<\/title>/.exec(html) || [])[1] || '').trim();
   const title = pub.title || mark('TREATMENT.md', (/^#\s*《([^》]+)》/m.exec(treat) || [])[1])
@@ -46,7 +48,7 @@ export function collect(dir) {
   return {
     name: path.basename(dir), title, titleEn: pub.titleEn || '', oneLiner, hookEn: pub.hookEn || '', beats, lines, vo,
     styleZh: (styleZh || '').trim(), styleEn: (styleEn || '').trim(), styleIntro, tone, creditLines, dur, zh,
-    tags: pub.tags || [], tagsEn: pub.tagsEn || [], link: pub.link || '', over: pub.platforms || {}, used,
+    tags: pub.tags || [], tagsEn: pub.tagsEn || [], link: pub.link || '', over: pub.platforms || {}, used, line,
   };
 }
 
@@ -59,26 +61,40 @@ function channels(s) {
   const cand = [s.styleZh && `${s.title}｜${s.styleZh}`, `《${s.title}》${durZh(s.dur).replace(' ', '')}短片`, s.title].filter(Boolean);
   const title = cand.find(t => len(t) >= 6 && len(t) <= 16) || clip(s.title, 16);
   const quote = s.vo.slice(0, 2).concat(s.vo.length > 3 ? [s.vo[s.vo.length - 1]] : []);
+  const headLine = s.line === '泡芙'
+    ? `泡芙｜《${s.title}》${s.dur ? `· ${durZh(s.dur)}` : ''}`
+    : `《${s.title}》${s.dur ? `· ${durZh(s.dur)}短片` : ''}`;
   const body = [
-    `《${s.title}》${s.dur ? `· ${durZh(s.dur)}短片` : ''}`,
+    headLine,
     s.oneLiner,
     quote.length ? quote.map(q => `「${q}」`).join('\n') : '',
     s.creditLines[0] || '',
     tags.join(' '),
   ].filter(Boolean).join('\n\n');
-  return { title, body, tags, limits: { title: [6, 16], body: 1000 }, notes: ['短标题 6–16 字，不堆符号', '正文不放外链、不写「点赞关注」类引导'] };
+  const notes = ['短标题 6–16 字，不堆符号', '正文不放外链、不写「点赞关注」类引导'];
+  let template = 'channels';
+  if (s.line === '科普') { template = 'kepu-channels'; notes.unshift('科普视频号模板（微信增长，P0 过后交定稿），与泡芙分开'); }
+  else if (s.line === '泡芙') { template = 'puff-channels'; notes.unshift('泡芙视频号模板：宠物钩子，与科普讲解模板分开'); }
+  return { title, body, tags, limits: { title: [6, 16], body: 1000 }, notes, template };
 }
 
 function x(s) {
   const tags = uniq([...(s.tagsEn.length ? s.tagsEn : s.tags).slice(0, 2)]).map(tag);
   const head = s.titleEn ? `${s.titleEn} / 《${s.title}》` : `《${s.title}》`;
-  const en = s.hookEn || (s.zh && s.styleEn ? `A ${durEn(s.dur) ? durEn(s.dur) + ' ' : ''}${s.styleEn.toLowerCase()} short.` : '');
+  let en = s.hookEn || '';
+  if (!en && s.line === '泡芙') en = s.dur ? `A ${durEn(s.dur)} pet short.` : 'A pet short.';
+  else if (!en && s.line === '科普') en = s.styleEn ? `A ${durEn(s.dur) ? durEn(s.dur) + ' ' : ''}${s.styleEn.toLowerCase()} short.` : 'A short explainer.';
+  else if (!en && s.zh && s.styleEn) en = `A ${durEn(s.dur) ? durEn(s.dur) + ' ' : ''}${s.styleEn.toLowerCase()} short.`;
   const hook = s.vo[0] && s.vo[1] ? s.vo[0] + s.vo[1] : s.vo[0] || s.oneLiner;
   const tail = [tags.join(' '), s.link].filter(Boolean).join(' ');
   const build = h => [head + (s.dur ? ` · ${durEn(s.dur)}` : ''), h, en, tail].filter(Boolean).join('\n\n');
   let text = build(hook);
   if (xLen(text) > 280) { const room = 280 - xLen(build('')) - 2; text = build(room > 10 ? clip(hook, room, xLen) : ''); }
-  return { title: head, body: text, tags, limits: { body: 280 }, count: xLen, notes: ['X 计数：汉字算 2、链接算 23，上限 280', s.zh && !s.hookEn ? '想要完整英文句子，在 publish.json 写 hookEn / titleEn' : ''].filter(Boolean) };
+  const notes = ['X 计数：汉字算 2、链接算 23，上限 280', s.zh && !s.hookEn ? '想要完整英文句子，在 publish.json 写 hookEn / titleEn' : ''].filter(Boolean);
+  let template = 'x';
+  if (s.line === '科普') { template = 'kepu-x'; notes.unshift('科普 X 模板：英文钩子，封面少字或无字'); }
+  else if (s.line === '泡芙') { template = 'puff-x'; notes.unshift('泡芙 X 模板：宠物钩子，与科普英文模板分开'); }
+  return { title: head, body: text, tags, limits: { body: 280 }, count: xLen, notes, template };
 }
 
 function xhs(s) {
@@ -118,7 +134,7 @@ export function generate(dir) {
     const warnings = RISKY.filter(w => text.includes(w)).map(w => `含「${w}」，平台可能判为极限词或引流`);
     if (p.limits.body && count(p.body) > p.limits.body) warnings.push(`正文 ${count(p.body)} 超过 ${p.limits.body}`);
     const tl = p.limits.title; if (tl && p.title && len(p.title) > (Array.isArray(tl) ? tl[1] : tl)) warnings.push(`标题 ${len(p.title)} 字超过上限`);
-    return { id, name, title: p.title, body: p.body, tags: p.tags, text, counts: { title: len(p.title || ''), body: count(p.body) }, limits: p.limits, notes: p.notes, warnings };
+    return { id, name, title: p.title, body: p.body, tags: p.tags, text, counts: { title: len(p.title || ''), body: count(p.body) }, limits: p.limits, notes: p.notes, warnings, template: p.template || '' };
   });
   return {
     version: 1, film: s.name, generated: new Date().toISOString(),

@@ -12,7 +12,8 @@
   <div class="brand"><span class="dot"></span>视频工作台 <em>Video Workbench</em></div>
   <div class="now" id="nowTitle">选择一部片子</div>
   <div class="top-actions">
-    <button id="btnNew" class="ghost">＋ 新建影片</button>
+    <button id="btnBoard" class="ghost" type="button">任务看板</button>
+    <button id="btnNew" class="ghost" type="button">＋ 新建影片</button>
   </div>
 </header>
 
@@ -20,6 +21,11 @@
   <aside class="side">
     <section>
       <h3>我的影片 <small>films/</small></h3>
+      <div class="filters" id="lineFilters">
+        <button type="button" data-line="" class="on">全部</button>
+        <button type="button" data-line="科普">科普</button>
+        <button type="button" data-line="泡芙">泡芙</button>
+      </div>
       <ul id="listFilms" class="plist"></ul>
       <p id="emptyFilms" class="hint">还没有影片。点右上角「新建影片」，从模板开始，可以顺便写简报。</p>
     </section>
@@ -30,6 +36,14 @@
   </aside>
 
   <section class="center">
+    <div id="board" class="board" hidden>
+      <div class="board-bar">
+        <strong>任务</strong>
+        <span class="hint">一部片一条任务。阶段从选题走到复盘；已发和播放数只由用户自己改，系统不代发。</span>
+      </div>
+      <div id="laneLegend" class="lanes"></div>
+      <div id="boardBody"></div>
+    </div>
     <div class="stage" id="stage">
       <div class="frame-wrap" id="frameWrap"><iframe id="view" title="预览" tabindex="-1"></iframe></div>
       <div class="footage-stage" id="footageStage" hidden>
@@ -66,6 +80,7 @@
       <button data-tab="output">成片</button>
       <button data-tab="publish">发布</button>
       <button data-tab="brief">简报</button>
+      <button data-tab="task">任务</button>
       <button data-tab="info">信息</button>
     </nav>
 
@@ -137,7 +152,8 @@
       <div class="group">
         <h4>发布文案 <small>out/copy.json</small></h4>
         <div class="btns"><button data-job="copy" class="primary">生成文案</button></div>
-        <p id="copyState" class="hint">一键出片时会自动生成；也可以单独点「生成文案」。素材来自分镜本、台词、风格说明和 publish.json，离线模板生成。</p>
+        <p id="copyLine" class="hint"></p>
+        <p id="copyState" class="hint">一键出片时会自动生成；也可以单独点「生成文案」。素材来自分镜本、台词、风格说明和 publish.json，离线模板生成。科普和泡芙的视频号 / X 模板分开，系统不代发。</p>
         <div id="copyLinks" class="links"></div>
       </div>
       <div id="copyCards" class="copy-cards"></div>
@@ -146,11 +162,22 @@
     <div class="tab" id="tab-brief">
       <div class="group">
         <h4>简报 <small>brief.json</small></h4>
-        <p class="hint">记这部片要做成什么样。保存只写 <code>brief.json</code>，不会改 <code>film.js</code> 和 <code>lines.json</code>。改画面、台词仍靠这两个文件，或跟 Bot 说。</p>
+        <p class="hint">风格包、音色、语速、水印、画幅分开选。模板只复制脚手架，不锁死这些。保存只写 <code>brief.json</code>，不会改 <code>film.js</code> 和 <code>lines.json</code>。</p>
         <div id="briefHost"></div>
         <p class="err" id="briefErr"></p>
         <p class="hint" id="briefStatus"></p>
         <div class="btns"><button id="btnSaveBrief" class="primary" type="button">保存简报</button></div>
+      </div>
+    </div>
+
+    <div class="tab" id="tab-task">
+      <div class="group">
+        <h4>任务 <small>status.json</small></h4>
+        <p class="hint">选题 → 分镜 → 制作 → 交审 / P0过 / 改点中 → 文案已交 → 拷发就绪 → 已发 → 待复盘 → 已复盘。运营不代发。播放和曝光只贴在备注里，留空也行。</p>
+        <div id="taskHost"></div>
+        <p class="err" id="taskErr"></p>
+        <p class="hint" id="taskStatus"></p>
+        <div class="btns"><button id="btnSaveTask" class="primary" type="button" disabled>保存任务</button></div>
       </div>
     </div>
 
@@ -174,13 +201,27 @@
         <label class="chk"><input type="radio" value="泡芙"> 泡芙</label>
       </div>
     </div>
-    <label class="field"><span data-brief="styleLabel">风格</span>
+    <label class="field"><span data-brief="styleLabel">视觉风格包</span>
       <select data-brief="style"></select>
     </label>
     <label class="field" data-brief="customWrap" hidden>自定义风格
       <input data-brief="styleCustom" type="text" maxlength="80" placeholder="用一句话写清风格">
     </label>
     <p class="hint" data-brief="styleHint"></p>
+    <label class="field">配音音色
+      <select data-brief="voice"></select>
+    </label>
+    <label class="field">语速
+      <select data-brief="voiceRate"></select>
+    </label>
+    <div class="field">
+      <span class="lbl">水印</span>
+      <label class="chk"><input type="checkbox" data-brief="watermarkOn"> 显示水印</label>
+      <input data-brief="watermark" type="text" maxlength="40" placeholder="科普默认 Hobson 小党；泡芙留空">
+    </div>
+    <label class="field">画幅
+      <select data-brief="aspect"></select>
+    </label>
     <div data-brief="slot"></div>
     <label class="field">目标时长
       <select data-brief="duration">
@@ -230,7 +271,7 @@
     <div id="newBrief"></div>
     <label class="field" id="lblTemplate">模板 <select id="newTemplate"></select></label>
     <label class="field" id="lblName">片名（文件夹名） <input id="newName" type="text" placeholder="orange-cat" pattern="[a-z0-9][a-z0-9\-]{0,47}" required></label>
-    <p class="hint" id="newRules">只用小写字母、数字和连字符，例如 <code>orange-cat</code>。会复制模板到 <code>films/片名/</code>。素材片选「色块故事」，把视频放进 <code>raw/</code>。</p>
+    <p class="hint" id="newRules">只用小写字母、数字和连字符，例如 <code>orange-cat</code>。会复制模板到 <code>films/片名/</code>。模板不锁定风格和音色。素材片选「色块故事」，把视频放进 <code>raw/</code>。</p>
     <div class="dlg-foot">
       <label class="check"><input type="checkbox" id="newCta"><span>写入结尾互动台词（改 <code>lines.json</code>：问题 + 评论框）。上面的「加 CTA」只记在简报里。</span></label>
       <p class="hint">简报写入 <code>brief.json</code>，只记意图，不会自动生成成片。改画面和台词仍靠 <code>film.js</code>、<code>lines.json</code>，或跟 Bot 说。题目可以先空着。</p>

@@ -36,7 +36,7 @@ async function select(path, keepT = false) {
   else await loadFrame();
   audio.src = p.mix ? `${p.mix}?${p.mixTime}` : ''; mixState();
   renderOutputs(); attachRunningJob();
-  if (!same) watchProject();
+  if (!same) { watchProject(); loadBrief(); }
 }
 
 // ———————— 预览 ————————
@@ -315,19 +315,148 @@ function renderInfo() {
   $('#cues').replaceChildren(...S.tl.cues.map(c => el('tr', { onclick: () => seek(c.t0) }, el('td', { class: 'n' }, fmt(c.t0)), el('td', {}, c.text))));
 }
 
+// ———————— 简报 ————————
+const SCIENCE_STYLES = ['信息卡+字幕', '动画讲解', '纪录片旁白', '其他自定义'];
+const PUFF_PRESETS = ['定版日常', '出行墨镜'];
+const STYLE_HINTS = {
+  '信息卡+字幕': '信息卡适合按台词排的模板（deck / lines）。可以用 keynote，或从 blank 另起。不会改你选的模板。',
+  '动画讲解': '动画讲解优先 keynote；有 qa 模板时也合适。不会改你选的模板。',
+  '纪录片旁白': '纪录片旁白可以从 keynote 改，或用 blank 另起风格。不会改你选的模板。',
+  '其他自定义': '自定义风格不会自动换模板。画面和台词仍改 film.js、lines.json。',
+  '定版日常': '泡芙定版日常：比熊角色锁定。不要用实拍照片轮播冒充动画。不会改你选的模板。',
+  '出行墨镜': '泡芙出行墨镜：比熊角色锁定。不要用实拍照片轮播冒充动画。不会改你选的模板。',
+};
+function mountBrief(host, { radio, slot = [] } = {}) {
+  host.replaceChildren($('#tplBrief').content.cloneNode(true));
+  const root = host.querySelector('.brief-form');
+  root.querySelectorAll('[data-brief=line] input').forEach(r => { r.name = radio; });
+  const slotEl = root.querySelector('[data-brief=slot]');
+  if (slot.length) slotEl.replaceWith(...slot); else slotEl.remove();
+  const q = s => root.querySelector(s);
+  const radios = () => [...root.querySelectorAll('[data-brief=line] input')];
+  const styleSel = q('[data-brief=style]');
+  const mem = { '科普': '动画讲解', '泡芙': '定版日常' };
+  let lineNow = '科普';
+  const currentLine = () => radios().find(r => r.checked)?.value || '科普';
+  function fillStyles(line, value) {
+    const list = line === '泡芙' ? PUFF_PRESETS : SCIENCE_STYLES;
+    styleSel.replaceChildren(...list.map(id => el('option', { value: id }, id)));
+    q('[data-brief=styleLabel]').textContent = line === '泡芙' ? '定版' : '风格';
+    styleSel.value = list.includes(value) ? value : (line === '泡芙' ? '定版日常' : '动画讲解');
+  }
+  function sync() {
+    const line = currentLine(), style = styleSel.value;
+    q('[data-brief=customWrap]').hidden = !(line === '科普' && style === '其他自定义');
+    q('[data-brief=durWrap]').hidden = q('[data-brief=duration]').value !== 'custom';
+    q('[data-brief=styleHint]').textContent = STYLE_HINTS[style] || '';
+  }
+  function write(b) {
+    const line = b?.line === '泡芙' ? '泡芙' : '科普';
+    let style = (line === '泡芙' ? (b?.puffPreset || b?.style) : b?.style) || (line === '泡芙' ? '定版日常' : '动画讲解');
+    let styleCustom = b?.styleCustom || '';
+    if (line === '科普' && style && !SCIENCE_STYLES.includes(style)) { styleCustom = styleCustom || style; style = '其他自定义'; }
+    if (line === '泡芙' && !PUFF_PRESETS.includes(style)) style = '定版日常';
+    lineNow = line; mem[line] = style;
+    radios().forEach(r => { r.checked = r.value === line; });
+    fillStyles(line, style);
+    q('[data-brief=styleCustom]').value = styleCustom;
+    q('[data-brief=topic]').value = b?.topic || '';
+    const dur = b?.durationSec;
+    if (dur == null || dur === '') { q('[data-brief=duration]').value = ''; q('[data-brief=durationCustom]').value = ''; }
+    else if (['15', '30', '60', '120'].includes(String(dur))) { q('[data-brief=duration]').value = String(dur); q('[data-brief=durationCustom]').value = ''; }
+    else { q('[data-brief=duration]').value = 'custom'; q('[data-brief=durationCustom]').value = String(dur); }
+    q('[data-brief=audience]').value = b?.audience || '';
+    const picked = new Set(b?.platforms || []);
+    root.querySelectorAll('[data-brief=platforms] input').forEach(i => { i.checked = picked.has(i.value); });
+    q('[data-brief=language]').value = b?.language || 'zh-CN';
+    q('[data-brief=notes]').value = b?.notes || '';
+    q('[data-brief=cta]').checked = b?.cta === true;
+    sync();
+  }
+  function read() {
+    const line = currentLine(), style = styleSel.value, durSel = q('[data-brief=duration]').value;
+    let durationSec = null;
+    if (durSel === 'custom') {
+      const raw = q('[data-brief=durationCustom]').value.trim();
+      if (!raw) throw new Error('自定义时长要填秒数');
+      durationSec = Number(raw);
+      if (!Number.isInteger(durationSec)) throw new Error('时长要是整数秒');
+    } else if (durSel) durationSec = Number(durSel);
+    const brief = {
+      line, style,
+      topic: q('[data-brief=topic]').value.trim(),
+      durationSec,
+      audience: q('[data-brief=audience]').value.trim(),
+      platforms: [...root.querySelectorAll('[data-brief=platforms] input:checked')].map(i => i.value),
+      language: q('[data-brief=language]').value.trim() || 'zh-CN',
+      notes: q('[data-brief=notes]').value.trim(),
+      cta: q('[data-brief=cta]').checked,
+    };
+    if (line === '泡芙') brief.puffPreset = style;
+    if (line === '科普' && style === '其他自定义') brief.styleCustom = q('[data-brief=styleCustom]').value.trim();
+    return brief;
+  }
+  radios().forEach(r => r.addEventListener('change', () => {
+    if (!r.checked) return;
+    mem[lineNow] = styleSel.value; lineNow = r.value;
+    fillStyles(lineNow, mem[lineNow]); sync();
+  }));
+  styleSel.addEventListener('change', sync);
+  q('[data-brief=duration]').addEventListener('change', sync);
+  write(null);
+  return { read, write, setDisabled: on => root.querySelectorAll('input, select, textarea').forEach(el => { el.disabled = on; }) };
+}
+const newBrief = mountBrief($('#newBrief'), { radio: 'newLine', slot: [$('#lblTemplate'), $('#lblName'), $('#newRules')] });
+const filmBrief = mountBrief($('#briefHost'), { radio: 'filmLine' });
+let briefToken = 0;
+async function loadBrief() {
+  const token = ++briefToken, p = S.cur, err = $('#briefErr'), st = $('#briefStatus'), btn = $('#btnSaveBrief');
+  err.textContent = '';
+  if (!p || p.kind !== 'film') {
+    filmBrief.write(null); filmBrief.setDisabled(true); btn.disabled = true;
+    st.textContent = '模板没有简报。新建影片时可以填，之后在影片的「简报」里改。';
+    return;
+  }
+  filmBrief.setDisabled(false); btn.disabled = false; st.textContent = '读取简报…';
+  try {
+    const r = await api('/api/brief?path=' + encodeURIComponent(p.path));
+    if (token !== briefToken || S.cur?.path !== p.path) return;
+    filmBrief.write(r.brief);
+    st.textContent = r.brief ? `已读取 ${p.path}/brief.json。保存只更新这个文件。` : '还没有 brief.json。填好后保存，会写进这部片的文件夹。画面和台词不会被改掉。';
+  } catch (e) {
+    if (token !== briefToken || S.cur?.path !== p.path) return;
+    filmBrief.write(null); err.textContent = e.message;
+    st.textContent = '这份 brief.json 读不出来。改完再保存会覆盖它。';
+  }
+}
+$('#btnSaveBrief').onclick = async () => {
+  const p = S.cur, btn = $('#btnSaveBrief');
+  if (!p || p.kind !== 'film') return;
+  $('#briefErr').textContent = ''; btn.disabled = true;
+  try {
+    const r = await api('/api/brief', { path: p.path, brief: filmBrief.read() });
+    if (S.cur?.path === p.path) { filmBrief.write(r.brief); $('#briefStatus').textContent = `已写入 ${p.path}/brief.json`; }
+    await loadProjects(); if (S.cur) renderInfo();
+  } catch (e) { $('#briefErr').textContent = e.message; }
+  finally { if (S.cur?.kind === 'film') btn.disabled = false; }
+};
+
 // ———————— 新建 ————————
-$('#btnNew').onclick = () => { $('#newErr').textContent = ''; $('#dlgNew').showModal(); $('#newName').focus(); };
+$('#btnNew').onclick = () => { $('#newErr').textContent = ''; newBrief.write(null); $('#newName').value = ''; $('#dlgNew').showModal(); $('#newBrief [data-brief=topic]').focus(); };
+$('#btnNewCancel').onclick = () => $('#dlgNew').close();
 $('#formNew').addEventListener('submit', async e => {
   if (e.submitter?.value !== 'default') return;
   e.preventDefault();
-  try { const r = await api('/api/new', { template: $('#newTemplate').value, name: $('#newName').value.trim(), cta: $('#newCta').checked }); $('#dlgNew').close(); await loadProjects(); await select(r.path); }
-  catch (err) { $('#newErr').textContent = err.message; }
+  try {
+    const r = await api('/api/new', { template: $('#newTemplate').value, name: $('#newName').value.trim(), brief: newBrief.read(), cta: $('#newCta').checked });
+    $('#dlgNew').close(); await loadProjects(); await select(r.path); tab('brief');
+  } catch (err) { $('#newErr').textContent = err.message; }
 });
 
 // ———————— 控件与快捷键 ————————
 $('#btnPlay').onclick = () => S.playing ? pause() : play();
 $('#btnPrev').onclick = () => step(-1); $('#btnNext').onclick = () => step(1);
-$('#btnReload').onclick = () => S.cur && loadFrame();
+$('#btnReload').onclick = () => { if (!S.cur) return; if (document.body.dataset.kind === 'footage') loadFootage(); else loadFrame(); };
 $('#selFps').onchange = () => draw(S.t, true);
 $('#chkAudio').onchange = () => { if (S.playing) { pause(); play(); } };
 addEventListener('keydown', e => {

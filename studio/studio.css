@@ -7,7 +7,7 @@
 @font-face { font-family: "JetBrains Mono"; src: url("/core/fonts/JetBrainsMono.woff2") format("woff2"); font-weight: 100 800; }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.5 var(--zh); }
-button, select, input { font: inherit; color: inherit; }
+button, select, input, textarea { font: inherit; color: inherit; }
 button { background: var(--bg3); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; transition: border-color .15s, background .15s; }
 button:hover:not(:disabled) { border-color: var(--acc); }
 button:disabled { opacity: .45; cursor: default; }
@@ -15,7 +15,8 @@ button.primary { background: var(--acc); color: #04110d; border-color: var(--acc
 button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 button.ghost { background: transparent; }
 button.tiny { padding: 1px 8px; font-size: 12px; margin-left: 8px; }
-select, input[type=number], input:not([type]) { background: var(--bg3); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+select, textarea, input[type=text], input[type=number], input:not([type]) { background: var(--bg3); border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+textarea { resize: vertical; }
 code { font-family: var(--mono); font-size: 12px; background: var(--bg3); padding: 1px 5px; border-radius: 4px; }
 
 .top { height: 52px; display: flex; align-items: center; gap: 18px; padding: 0 18px; border-bottom: 1px solid var(--line); background: var(--bg2); }
@@ -70,7 +71,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--bg3); paddin
 
 .panel { border-left: 1px solid var(--line); background: var(--bg2); display: flex; flex-direction: column; min-height: 0; }
 .tabs { display: flex; border-bottom: 1px solid var(--line); }
-.tabs button { flex: 1; border: 0; border-radius: 0; background: transparent; padding: 12px 0; color: var(--dim); border-bottom: 2px solid transparent; }
+.tabs button { flex: 1; border: 0; border-radius: 0; background: transparent; padding: 12px 2px; color: var(--dim); border-bottom: 2px solid transparent; }
 .tabs button.on { color: var(--ink); border-bottom-color: var(--acc); }
 .tab { display: none; padding: 12px 14px; overflow: auto; flex: 1; min-height: 0; flex-direction: column; gap: 14px; }
 .tab.on { display: flex; }
@@ -98,10 +99,19 @@ video.show { display: block; }
 .tbl tr:hover td { background: var(--bg3); }
 .tbl td.n { font-family: var(--mono); color: var(--dim); white-space: nowrap; width: 1%; }
 
-dialog { background: var(--bg2); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; width: 420px; }
+dialog { background: var(--bg2); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; width: min(480px, calc(100vw - 24px)); max-height: calc(100vh - 32px); overflow: auto; }
 dialog::backdrop { background: rgba(0,0,0,.6); }
 dialog h3 { margin: 0 0 14px; }
 dialog label { display: grid; gap: 6px; margin-bottom: 12px; color: var(--dim); font-size: 12px; }
-dialog input, dialog select { width: 100%; font-size: 14px; color: var(--ink); }
+dialog input, dialog select, dialog textarea { width: 100%; font-size: 14px; color: var(--ink); }
+.brief-form { display: grid; gap: 10px; }
+.brief-form .field { display: grid; gap: 4px; margin: 0; color: var(--dim); font-size: 12px; }
+.brief-form .lbl { font-size: 12px; }
+.brief-form .picks { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.brief-form .picks label { display: flex; align-items: center; gap: 4px; margin: 0; color: var(--ink); font-size: 13px; }
+.brief-form .picks input { width: auto; }
+.brief-form textarea { min-height: 72px; }
+.brief-form [hidden] { display: none !important; }
+#tab-brief .brief-form { margin-top: 4px; }
 
 @media (max-width: 1180px) { .layout { grid-template-columns: 200px 1fr 300px; } }

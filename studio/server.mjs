@@ -11,6 +11,99 @@ const PY = fs.existsSync(path.join(ROOT, '.venv/bin/python')) ? path.join(ROOT, 
 const KINDS = { templates: 'template', films: 'film' };
 const STEPS = ['fonts', 'voice', 'events', 'srt', 'audio', 'video', 'mux', 'poster', 'check'];
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,47}$/;
+const LINES = ['科普', '泡芙'];
+const SCIENCE_STYLES = ['信息卡+字幕', '动画讲解', '纪录片旁白', '其他自定义'];
+const PUFF_PRESETS = ['定版日常', '出行墨镜'];
+const PLATFORMS = ['视频号', '抖音', 'X', '小红书'];
+const PLATFORM_FLAGS = { '视频号': '微信增长', 'X': '英文钩子，封面少字或无字' };
+const PUFF_CONSTRAINTS = '定版比熊泡芙，角色锁定。不要用实拍照片轮播冒充动画。';
+
+// ———————— 简报 brief.json（只记意图，不改 film.js / lines.json） ————————
+function asText(v, max, label) {
+  if (v == null || v === '') return '';
+  if (typeof v !== 'string') throw new Error(`${label}要是文字`);
+  const s = v.trim();
+  if (s.length > max) throw new Error(`${label}太长（最多 ${max} 字）`);
+  return s;
+}
+function parseDuration(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'string' && !v.trim()) return null;
+  if (typeof v !== 'number' && typeof v !== 'string') throw new Error('时长要是 1–600 的整数秒');
+  const n = typeof v === 'number' ? v : Number(v);
+  if (!Number.isInteger(n) || n < 1 || n > 600) throw new Error('时长要是 1–600 的整数秒');
+  return n;
+}
+function normalizeBrief(raw) {
+  if (raw == null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw new Error('简报格式不对');
+  const line = raw.line == null || raw.line === '' ? '科普' : raw.line;
+  if (typeof line !== 'string' || !LINES.includes(line)) throw new Error('线路只能是「科普」或「泡芙」');
+  if (raw.style != null && raw.style !== '' && typeof raw.style !== 'string') throw new Error('风格要是文字');
+  let style = typeof raw.style === 'string' ? raw.style.trim() : '';
+  let styleCustom = '';
+  if (line === '泡芙') {
+    const preset = typeof raw.puffPreset === 'string' ? raw.puffPreset.trim() : '';
+    if (style && !PUFF_PRESETS.includes(style)) throw new Error('泡芙不能用科普风格，定版只能是「定版日常」或「出行墨镜」');
+    if (preset && !PUFF_PRESETS.includes(preset)) throw new Error('泡芙定版只能是「定版日常」或「出行墨镜」');
+    if (style && preset && style !== preset) throw new Error('泡芙的 style 和 puffPreset 要一致');
+    style = style || preset || '定版日常';
+  } else {
+    if (raw.puffPreset != null && raw.puffPreset !== '') throw new Error('科普简报不要带泡芙定版');
+    if (style && !SCIENCE_STYLES.includes(style)) throw new Error('科普风格只能是「信息卡+字幕」「动画讲解」「纪录片旁白」或「其他自定义」');
+    if (!style) style = '动画讲解';
+    if (style === '其他自定义') styleCustom = asText(raw.styleCustom, 80, '自定义风格');
+  }
+  if (raw.platforms != null && !Array.isArray(raw.platforms)) throw new Error('平台要是列表');
+  const picked = raw.platforms || [];
+  if (picked.some(p => typeof p !== 'string' || !PLATFORMS.includes(p))) throw new Error('平台只能选视频号、抖音、X、小红书');
+  const platforms = PLATFORMS.filter(p => picked.includes(p));
+  const language = asText(raw.language, 32, '语言') || 'zh-CN';
+  if (!/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/.test(language)) throw new Error('语言写成 zh-CN、en 这种代码');
+  const brief = { line, style };
+  if (line === '泡芙') brief.puffPreset = style;
+  else if (styleCustom) brief.styleCustom = styleCustom;
+  brief.topic = asText(raw.topic, 200, '题目');
+  brief.durationSec = parseDuration(raw.durationSec);
+  brief.audience = asText(raw.audience, 120, '受众');
+  brief.platforms = platforms;
+  brief.language = language;
+  brief.notes = asText(raw.notes, 2000, '备注');
+  if (line === '泡芙') {
+    brief.character = '比熊泡芙';
+    brief.constraints = PUFF_CONSTRAINTS;
+  }
+  const flags = {};
+  for (const p of platforms) if (PLATFORM_FLAGS[p]) flags[p] = PLATFORM_FLAGS[p];
+  if (Object.keys(flags).length) brief.platformFlags = flags;
+  return brief;
+}
+function filmDir(rel) {
+  if (typeof rel !== 'string' || !rel.startsWith('films/')) return null;
+  return projectDir(rel);
+}
+function readBrief(rel) {
+  const dir = filmDir(rel);
+  if (!dir) throw new Error('简报只放在 films/片名');
+  const file = path.join(dir, 'brief.json');
+  if (!fs.existsSync(file)) return null;
+  let data;
+  try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error('brief.json 无法解析'); }
+  return normalizeBrief(data);
+}
+function writeBriefFile(file, brief) {
+  const tmp = file + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(brief, null, 2) + '\n');
+  fs.renameSync(tmp, file);
+}
+function saveBrief(rel, raw) {
+  const dir = filmDir(rel);
+  if (!dir) throw new Error('简报只放在 films/片名');
+  const brief = normalizeBrief(raw);
+  if (!brief) throw new Error('缺少简报');
+  writeBriefFile(path.join(dir, 'brief.json'), brief);
+  return brief;
+}
 
 // ———————— 项目 ————————
 function projectDir(rel) {
@@ -32,7 +125,7 @@ function describe(kind, name) {
     kind: KINDS[kind], name, path: rel, title,
     poster: exists(abs, 'poster.jpg') ? `/${rel}/poster.jpg` : out('poster.jpg'),
     film: out(`${name}.mp4`), srt: out(`${name}.srt`), mix: out('mix.wav'), mixTime: mtime(path.join(abs, 'out', 'mix.wav')),
-    docs: ['STYLE.md', 'TREATMENT.md', 'CREDITS'].filter(f => exists(abs, f)).map(f => `/${rel}/${f}`),
+    docs: ['brief.json', 'STYLE.md', 'TREATMENT.md', 'CREDITS'].filter(f => exists(abs, f)).map(f => `/${rel}/${f}`),
     build: exists(abs, 'build.sh'), stills,
     updated: Math.max(...['film.js', 'index.html', 'lines.json', 'poster.jpg'].map(f => mtime(path.join(abs, f)))),
     codeTime: Math.max(...['film.js', 'lines.json', 'audio.py'].map(f => mtime(path.join(abs, f)))),
@@ -46,14 +139,16 @@ function listProjects() {
   }
   return all;
 }
-function newFilm(template, name) {
+function newFilm(template, name, brief) {
   const src = projectDir(`templates/${template}`);
   if (!src) throw new Error('模板不存在');
   if (!NAME_RE.test(name || '')) throw new Error('片名只能用小写字母、数字和连字符，例如 orange-cat');
   const dst = path.join(ROOT, 'films', name);
   if (fs.existsSync(dst)) throw new Error(`films/${name} 已存在`);
+  const normalized = brief == null ? null : normalizeBrief(brief);
   const skip = new Set(['out', 'stills', 'voices', 'events.json', 'poster.jpg']);
   fs.cpSync(src, dst, { recursive: true, filter: s => !skip.has(path.relative(src, s).split(path.sep)[0]) });
+  if (normalized) writeBriefFile(path.join(dst, 'brief.json'), normalized);
   return `films/${name}`;
 }
 
@@ -106,7 +201,7 @@ function watch(rel, res) {
   if (!w) {
     const subs = new Set(); let timer = null;
     const fw = fs.watch(dir, { recursive: true }, (_, f) => {
-      if (!f || /^(out|stills|voices)[\\/]|events\.json$|\.wav$|~$|\.swp$/.test(f)) return;
+      if (!f || /^(out|stills|voices)[\\/]|events\.json$|brief\.json(\.tmp)?$|\.wav$|~$|\.swp$/.test(f)) return;
       clearTimeout(timer); timer = setTimeout(() => { for (const r of subs) r.write(`data: ${JSON.stringify({ file: f })}\n\n`); }, 150);
     });
     w = { subs, fw }; watchers.set(rel, w);
@@ -126,7 +221,22 @@ async function api(req, res, u) {
   const q = new URL(req.url, 'http://x').searchParams;
   try {
     if (u === '/api/projects' && req.method === 'GET') return json(res, 200, listProjects()), true;
-    if (u === '/api/new' && req.method === 'POST') { const b = await body(req); return json(res, 200, { path: newFilm(b.template, b.name) }), true; }
+    if (u === '/api/new' && req.method === 'POST') { const b = await body(req); return json(res, 200, { path: newFilm(b.template, b.name, b.brief) }), true; }
+    if (u === '/api/brief' && req.method === 'GET') return json(res, 200, { brief: readBrief(q.get('path')) }), true;
+    if (u === '/api/brief' && req.method === 'POST') {
+      const b = await body(req);
+      const rel = (typeof b.path === 'string' && b.path) || q.get('path');
+      let raw = b;
+      if (Object.prototype.hasOwnProperty.call(b, 'brief')) {
+        if (b.brief == null || typeof b.brief !== 'object' || Array.isArray(b.brief)) throw new Error('缺少简报');
+        raw = b.brief;
+      } else {
+        const rest = { ...b }; delete rest.path;
+        if (!Object.keys(rest).length) throw new Error('缺少简报');
+        raw = rest;
+      }
+      return json(res, 200, { path: rel, brief: saveBrief(rel, raw) }), true;
+    }
     if (u === '/api/jobs' && req.method === 'GET') return json(res, 200, [...jobs.values()].reverse().map(pub)), true;
     if (u === '/api/jobs' && req.method === 'POST') { const b = await body(req); return json(res, 200, pub(startJob(b.path, b.task, b.args || {}))), true; }
     if (u === '/api/watch') return watch(q.get('path'), res), true;

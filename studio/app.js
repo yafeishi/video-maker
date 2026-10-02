@@ -681,7 +681,7 @@ $('#btnBoard').onclick = () => setView(S.view === 'board' ? 'preview' : 'board')
 $('#btnNew').onclick = () => { $('#newErr').textContent = ''; newBrief.write(null); $('#newName').value = ''; $('#dlgNew').showModal(); $('#newBrief [data-brief=topic]').focus(); };
 $('#btnNewCancel').onclick = () => $('#dlgNew').close();
 $('#formNew').addEventListener('submit', async e => {
-  if (e.submitter?.value !== 'default') return;
+  if (e.submitter?.value !== 'default') { $('#dlgNew').close(); return; }
   e.preventDefault();
   try {
     const r = await api('/api/new', { template: $('#newTemplate').value, name: $('#newName').value.trim(), brief: newBrief.read(), cta: $('#newCta').checked });

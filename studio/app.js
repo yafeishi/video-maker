@@ -4,8 +4,9 @@ const el = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag)
 const fmt = t => { t = Math.max(0, t); const m = Math.floor(t / 60), s = t - m * 60; return `${String(m).padStart(2, '0')}:${s.toFixed(2).padStart(5, '0')}`; };
 const api = async (u, body) => { const r = await fetch(u, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.statusText); return j; };
 
-const S = { projects: [], cur: null, fw: null, dur: 0, t: 0, playing: false, clock0: 0, t0: 0, lastFrame: -1, tl: { shots: [], cues: [], ev: [] }, job: null, es: null, watch: null, lineFilter: '', view: 'preview', brief: null, catalog: null };
+const S = { projects: [], cur: null, fw: null, dur: 0, t: 0, playing: false, clock0: 0, t0: 0, lastFrame: -1, tl: { shots: [], cues: [], ev: [] }, job: null, es: null, watch: null, lineFilter: '', view: 'board', brief: null, catalog: null };
 const view = $('#view'), audio = $('#mix'), tl = $('#tl');
+setView('board');
 
 // ———————— 项目列表 ————————
 async function loadProjects() {
@@ -704,9 +705,10 @@ addEventListener('keydown', e => {
 new ResizeObserver(() => { fit(); drawTimeline(); }).observe($('#stage'));
 new ResizeObserver(drawTimeline).observe(tl);
 
+setView('board');
 await loadProjects();
 const want = decodeURIComponent(location.hash.slice(1));
 const first = S.projects.find(p => p.path === want) || S.projects.find(p => p.kind === 'film') || S.projects[0];
-if (first) await select(first.path);
+if (first) select(first.path).catch(err => status(err.message || String(err), true));
 setView('board');
 fit();

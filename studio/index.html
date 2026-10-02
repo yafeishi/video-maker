@@ -7,12 +7,12 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='6' fill='%2346f0c4'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/studio/studio.css">
 </head>
-<body>
+<body data-view="board">
 <header class="top">
   <div class="brand"><span class="dot"></span>视频工作台 <em>Video Workbench</em></div>
   <div class="now" id="nowTitle">选择一部片子</div>
   <div class="top-actions">
-    <button id="btnBoard" class="ghost" type="button">任务看板</button>
+    <button id="btnBoard" class="ghost primary" type="button">返回预览</button>
     <button id="btnNew" class="ghost" type="button">＋ 新建影片</button>
   </div>
 </header>
@@ -36,7 +36,7 @@
   </aside>
 
   <section class="center">
-    <div id="board" class="board" hidden>
+    <div id="board" class="board">
       <div class="board-bar">
         <strong>任务</strong>
         <span class="hint">一部片一条任务。阶段从选题走到复盘；已发和播放数只由用户自己改，系统不代发。</span>

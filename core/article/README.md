@@ -5,6 +5,7 @@
 1. `tools/video2article.sh prep <url|file> <slug>` → /workspace/article-runs/<slug>/：video.mp4、transcript.srt/txt（有字幕用字幕，否则 faster-whisper）、scenes.json（PySceneDetect；镜头少的动画视频退化为定时取样）、contact.jpg 联系表
 2. Agent 读 transcript.txt + contact.jpg，写 article/article.md。事实只来自字幕和画面，不编我的经历和感受
 3. `tools/video2article.sh frames <slug> name@秒 ...` → article/img/，然后逐张打开核对（强制）
+6. `tools/video2article.sh publish <media_id> --confirm` → freepublish（不在默认流程；每篇须用户单独同意；绝不群发）
 5. `tools/video2article.sh draft <slug>` → 公众号草稿箱（stable_token → uploadimg 换图 → add_material 封面 → draft/add；只草稿，绝不 freepublish/群发），结果写 article/draft.json
 4. `tools/video2article.sh build <slug>` → lint（禁用词、500–800 字、2–3 图、清单≤4、标题≤20 字、金句≤2、无点赞在看）+ article.html（内联样式，可粘贴公众号）+ cover.jpg + 预览 ops.danghb.cn/fun/demo/article-<slug>/（OPS 登录）
 

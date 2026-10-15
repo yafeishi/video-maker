@@ -16,5 +16,6 @@ case $cmd in
           P=/workspace/fun-demos/article-$1; rm -rf "$P"; mkdir -p "$P"; cp -r "$R/img" "$P/"; cp "$R/article.html" "$P/index.html"; [ -f "$R/cover.jpg" ] && cp "$R/cover.jpg" "$P/"
           echo "preview: https://ops.danghb.cn/fun/demo/article-$1/" ;;
   draft)  python3 "$A/draft.py" "$RUNS/$1/article" "${@:2}" ;;   # 只存草稿箱，不发布
-  *) echo "usage: prep|frames|build|draft"; exit 2 ;;
+  publish) python3 "$A/publish.py" "$@" ;;   # 需 <media_id> --confirm，且每篇单独征得同意
+  *) echo "usage: prep|frames|build|draft|publish"; exit 2 ;;
 esac

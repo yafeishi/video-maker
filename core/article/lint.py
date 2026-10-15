@@ -7,5 +7,11 @@ for w in BAN:
 emo = re.findall(r'[\U0001F300-\U0001FAFF\u2600-\u27BF]', body); n_ex = body.count('！') + body.count('!')
 if emo: bad += 1; print('EMOJI', ''.join(emo))
 if n_ex > 2: bad += 1; print('感叹号过多', n_ex)
-cn = len(re.findall(r'[\u4e00-\u9fff]', body)); print(f'OK 汉字 {cn}，禁用词/格式问题 {bad} 处' if not bad else f'FAIL {bad} 处，汉字 {cn}')
+cn = len(re.findall(r'[\u4e00-\u9fff]', body))
+lo, hi = 500, 800  # 第九节：公众号正文 500–800 字
+if not lo <= cn <= hi: bad += 1; print(f'LENGTH 汉字 {cn}，要求 {lo}–{hi}')
+ni = len(re.findall(r'!\[', t)); nl = len(re.findall(r'^- ', t, re.M))
+if not 2 <= ni <= 3: bad += 1; print(f'IMAGES {ni}，要求 2–3')
+if nl > 4: bad += 1; print(f'LIST {nl} 条，最多 4')
+print(f'OK 汉字 {cn}，禁用词/格式问题 {bad} 处' if not bad else f'FAIL {bad} 处，汉字 {cn}')
 sys.exit(1 if bad else 0)

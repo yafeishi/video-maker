@@ -88,3 +88,27 @@ node core/edit/run.mjs films/my-footage ingest shots frames   # 素材片：检�
 sh films/my-footage/build.sh                 # 素材片一键出片（kind: footage）
 .venv/bin/python core/tts/asr_mix.py films/my-film/out/mix.wav films/my-film/events.json   # 成片配音检查
 ```
+
+## Cursor Cloud specific instructions
+
+默认镜像里已有 Node 20+、Python 3.12、ffmpeg 和 Chrome（`/usr/local/bin/google-chrome`）。创建 `.venv` 还需要系统包 `python3.12-venv`，否则 `sh setup.sh` 会在 Python 这一步失败。环境 install 按这个顺序跑，并且可以重复执行：
+
+```sh
+sudo DEBIAN_FRONTEND=noninteractive apt-get update
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y python3.12-venv
+sh setup.sh
+```
+
+`setup.sh` 安装 npm 依赖、`.venv`（numpy、scipy、soundfile、edge-tts 等）和思源黑体。系统 Chrome 存在时，它不会再下载 Playwright 的浏览器。
+
+工作台在每次环境启动时拉起：`npm run studio`，地址 http://127.0.0.1:4400 。端口已有服务时不要再开第二个。
+
+验证这台机器能出画面：
+
+```sh
+node --test core/edit/edit.test.mjs
+node core/render/still.mjs templates/keynote 3.5
+node tools/check-lines.mjs templates/qa
+```
+
+配音用 edge-tts，不需要密钥；生成人声时要能访问微软语音服务。`films/` 默认不进 git。

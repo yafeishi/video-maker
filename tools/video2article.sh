@@ -12,7 +12,7 @@ case $cmd in
   prep)   python3 "$A/prep.py" "$1" "$RUNS/$2" ;;
   frames) s=$1; shift; python3 "$A/frames.py" "$RUNS/$s" "$@" ;;
   build)  R="$RUNS/$1/article"; python3 "$A/lint.py" "$R/article.md"; python3 "$A/render.py" "$R/article.md"
-          P=/workspace/fun-demos/article-$1; rm -rf "$P"; mkdir -p "$P"; cp -r "$R/img" "$P/"; cp "$R/article.html" "$P/index.html"
+          P=/workspace/fun-demos/article-$1; rm -rf "$P"; mkdir -p "$P"; cp -r "$R/img" "$P/"; cp "$R/article.html" "$P/index.html"; [ -f "$R/cover.jpg" ] && cp "$R/cover.jpg" "$P/"
           echo "preview: https://ops.danghb.cn/fun/demo/article-$1/" ;;
   *) echo "usage: prep|frames|build"; exit 2 ;;
 esac

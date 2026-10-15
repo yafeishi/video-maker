@@ -13,5 +13,10 @@ if not lo <= cn <= hi: bad += 1; print(f'LENGTH 汉字 {cn}，要求 {lo}–{hi}
 ni = len(re.findall(r'!\[', t)); nl = len(re.findall(r'^- ', t, re.M))
 if not 2 <= ni <= 3: bad += 1; print(f'IMAGES {ni}，要求 2–3')
 if nl > 4: bad += 1; print(f'LIST {nl} 条，最多 4')
+tm = re.search(r'^# (.+)$', t, re.M); tl = len(tm[1].strip()) if tm else 0
+if not tm or tl > 20: bad += 1; print(f'TITLE {tl} 字，最多 20')
+if re.search(r'点赞|在看|关注我|转发', body): bad += 1; print('含点赞/在看/关注引导')
+nq = len(re.findall(r'^——|^> ——', t, re.M))
+if nq > 2: bad += 1; print(f'QUOTES {nq}，最多 2')
 print(f'OK 汉字 {cn}，禁用词/格式问题 {bad} 处' if not bad else f'FAIL {bad} 处，汉字 {cn}')
 sys.exit(1 if bad else 0)

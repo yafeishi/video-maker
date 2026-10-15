@@ -1,5 +1,8 @@
 # 三十岁，三万天已经用掉一万一千天
 
+^^ 整理自 Productive Peter 视频 Life is Short (How to Spend It Wisely)，2024 年 12 月，youtube.com/watch?v=Xtxscxi83XA
+<!-- cover: img/04_treadmill.jpg -->
+
 一辈子平均也就三万天上下，三十岁的时候已经用掉了大约一万一千天，Productive Peter 那期 Life is Short 开头就丢了这个数，2024 年 12 月发的，17 分钟，分了十三章，挑三段记一下。
 
 ![](img/01_30000days.jpg)
@@ -29,4 +32,3 @@
 
 八十小时十万和三十小时七万，换你选哪个，评论区说下。
 
-视频链接 youtube.com/watch?v=Xtxscxi83XA

@@ -1,0 +1,15 @@
+{
+  "line": "科普",
+  "style": "动画讲解",
+  "topic": "",
+  "durationSec": 90,
+  "audience": "",
+  "platforms": [
+    "视频号",
+    "抖音",
+    "X"
+  ],
+  "language": "zh-CN",
+  "notes": "模板 danghb-kepu：浅底大图；配音锁定 zh-CN-YunyangNeural @ -5%；水印 Hobson 小党；场景先行。",
+  "cta": false
+}

@@ -1,0 +1,8 @@
+Sources (mechanism reference; VO stays audience-facing):
+- https://tailscale.com/docs/concepts/control-data-planes
+- https://tailscale.com/docs/reference/derp-servers
+- https://tailscale.com/docs/reference/derp-servers/custom-derp-servers
+- https://tailscale.com/docs/reference/connection-types
+
+Voice: edge-tts zh-CN-YunyangNeural
+Style: 浅色竖屏动画讲解 · 场景→备胎通道

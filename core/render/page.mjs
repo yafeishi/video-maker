@@ -18,6 +18,14 @@ export async function openFilm(dir, { w = 1920, h = 1080, q = '' } = {}) {
   const sep = q ? '?' + q : '';
   await page.goto(pageURL(ROOT, port, dir) + (sep ? sep + '&' : '?') + 'render=1');
   await page.waitForFunction(() => window.READY === true, null, { timeout: 180000 });
+  // Match viewport to canvas bitmap so竖屏 films render at native size (e.g. 1080×1920)
+  const size = await page.evaluate(() => {
+    const c = document.querySelector('canvas');
+    return c ? { w: c.width | 0, h: c.height | 0 } : null;
+  });
+  if (size && size.w > 0 && size.h > 0 && (size.w !== w || size.h !== h)) {
+    await page.setViewportSize({ width: size.w, height: size.h });
+  }
   return { browser, page };
 }
 export function closeServer() { if (srv) srv.server.close(); }

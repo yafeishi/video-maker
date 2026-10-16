@@ -20,6 +20,7 @@ core/fonts/src/
 !/films/.gitkeep
 !/films/no-parade-2026/
 !/films/starship-14/
+!/films/puppy-jobs-grok/
 
 # 素材小样的生成物（make-raw.mjs / core/edit 会重新做）
 templates/footage-demo/raw/*.mp4

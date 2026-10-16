@@ -1,0 +1,112 @@
+{
+  "lines": ["科普", "泡芙"],
+  "stylePacks": [
+    {
+      "id": "danghb-kepu",
+      "line": "科普",
+      "style": "动画讲解",
+      "label": "动画讲解 / danghb-kepu",
+      "default": true,
+      "hint": "浅底大图、竖屏动画讲解。选它不会改模板，也不会改 film.js。"
+    },
+    {
+      "id": "info-card",
+      "line": "科普",
+      "style": "信息卡+字幕",
+      "label": "信息卡+字幕",
+      "hint": "信息卡适合按台词排的模板。不会改你选的模板。"
+    },
+    {
+      "id": "doc-narration",
+      "line": "科普",
+      "style": "纪录片旁白",
+      "label": "纪录片旁白",
+      "hint": "纪录片旁白可以从现有模板改，或用 blank 另起。不会改你选的模板。"
+    },
+    {
+      "id": "custom",
+      "line": "科普",
+      "style": "其他自定义",
+      "label": "其他自定义",
+      "hint": "自定义风格只记在简报里。画面和台词仍改 film.js、lines.json。"
+    },
+    {
+      "id": "puff-daily",
+      "line": "泡芙",
+      "style": "定版日常",
+      "label": "定版日常",
+      "default": true,
+      "hint": "泡芙定版日常：比熊角色锁定。不要用实拍照片轮播冒充动画。不会改你选的模板。"
+    },
+    {
+      "id": "puff-sunglasses",
+      "line": "泡芙",
+      "style": "出行墨镜",
+      "label": "出行墨镜",
+      "hint": "泡芙出行墨镜：比熊角色锁定。不要用实拍照片轮播冒充动画。不会改你选的模板。"
+    }
+  ],
+  "voices": [
+    { "id": "zh-CN-YunyangNeural", "label": "云扬 Yunyang（男，科普默认）", "scienceDefault": true },
+    { "id": "zh-CN-YunxiNeural", "label": "云希 Yunxi（男，叙述）" },
+    { "id": "zh-CN-YunjianNeural", "label": "云健 Yunjian（男，浑厚）" },
+    { "id": "zh-CN-XiaoxiaoNeural", "label": "晓晓 Xiaoxiao（女，温暖，泡芙默认）", "puffDefault": true },
+    { "id": "zh-CN-XiaoyiNeural", "label": "晓伊 Xiaoyi（女，活泼）" }
+  ],
+  "voiceRates": ["-10%", "-5%", "+0%", "+5%", "+10%"],
+  "aspects": [
+    { "id": "9:16", "label": "竖屏 9:16" },
+    { "id": "16:9", "label": "横屏 16:9" }
+  ],
+  "lineDefaults": {
+    "科普": {
+      "stylePack": "danghb-kepu",
+      "voice": "zh-CN-YunyangNeural",
+      "voiceRate": "-5%",
+      "watermark": "Hobson 小党",
+      "aspect": "9:16"
+    },
+    "泡芙": {
+      "stylePack": "puff-daily",
+      "voice": "zh-CN-XiaoxiaoNeural",
+      "voiceRate": "+0%",
+      "watermark": "",
+      "aspect": "9:16"
+    }
+  },
+  "forbiddenWatermark": {
+    "泡芙": ["Hobson 小党"]
+  },
+  "stages": [
+    { "id": "选题", "owner": { "科普": "总管家", "泡芙": "泡芙" } },
+    { "id": "分镜", "owner": "视频制作" },
+    { "id": "制作", "owner": "视频制作" },
+    { "id": "交审", "owner": "自媒体运营", "ops": "交审" },
+    { "id": "P0过", "owner": "自媒体运营", "ops": "P0过" },
+    { "id": "改点中", "owner": "自媒体运营", "ops": "改点中" },
+    { "id": "文案已交", "owner": "微信增长 / X增长" },
+    { "id": "拷发就绪", "owner": "用户" },
+    { "id": "已发", "owner": "用户" },
+    { "id": "待复盘", "owner": "用户" },
+    { "id": "已复盘", "owner": "用户" }
+  ],
+  "ops": ["未交审", "交审", "P0过", "改点中"],
+  "handoff": ["待拷发", "已拷发给用户"],
+  "publishStatus": ["草稿", "文案已交", "已发", "待复盘"],
+  "platforms": [
+    { "id": "视频号", "copyOwner": "微信增长", "publishOwner": "用户" },
+    { "id": "抖音", "copyOwner": "", "publishOwner": "用户" },
+    { "id": "X", "copyOwner": "X增长", "publishOwner": "用户" },
+    { "id": "小红书", "copyOwner": "", "publishOwner": "用户" }
+  ],
+  "copyTemplates": {
+    "科普": {
+      "视频号": { "id": "kepu-channels", "owner": "微信增长", "note": "P0 过后交定稿。科普视频号模板，与泡芙分开。" },
+      "X": { "id": "kepu-x", "owner": "X增长", "note": "英文钩子，封面少字或无字。科普钉死模板。" }
+    },
+    "泡芙": {
+      "视频号": { "id": "puff-channels", "owner": "微信增长", "note": "宠物向文案。不套科普讲解模板。" },
+      "X": { "id": "puff-x", "owner": "X增长", "note": "宠物钩子英文。与科普钉死模板分开。" }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+《小狗打工记》素材来源
+
+画面：全部由 film.js 用 Canvas 2D 逐帧绘制，无外部图片、无视频生成。
+字体：站酷快乐体 ZCOOL KuaiLe（SIL OFL 1.1，Google Fonts / 站酷）。
+配乐：audio.py 用 core/audio/synth.py 程序化合成（和弦垫、拨弦、贝斯、鼓、钟琴），原创。
+音效：core/audio/sfx.py 程序化合成（弹出、嗖、冲击、快门、按键、故障、铃）。
+参考：styles/ref-puppy-jobs/ 中的原片联系表与角色特写，只作画风对照，不使用其画面像素。

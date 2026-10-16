@@ -1,5 +1,8 @@
 {
-  "lines": ["科普", "泡芙"],
+  "lines": [
+    "科普",
+    "泡芙"
+  ],
   "stylePacks": [
     {
       "id": "danghb-kepu",
@@ -22,6 +25,14 @@
       "style": "纪录片旁白",
       "label": "纪录片旁白",
       "hint": "纪录片旁白可以从现有模板改，或用 blank 另起。不会改你选的模板。"
+    },
+    {
+      "id": "code-anim-humor",
+      "line": "科普",
+      "style": "代码动画·幽默快节奏",
+      "label": "代码动画·幽默快节奏",
+      "hint": "参考 AI呆娃/提示词翻车秀/小狗打工记：Q版卡通、3关翻车+温情反转、28–45秒竖屏。工作台模板不能直接渲染这种画风，选它会把 styles/code-anim-humor.md 规格交给生成方照做，不会改你选的模板。",
+      "reference": "styles/code-anim-humor.md"
     },
     {
       "id": "custom",
@@ -47,16 +58,45 @@
     }
   ],
   "voices": [
-    { "id": "zh-CN-YunyangNeural", "label": "云扬 Yunyang（男，科普默认）", "scienceDefault": true },
-    { "id": "zh-CN-YunxiNeural", "label": "云希 Yunxi（男，叙述）" },
-    { "id": "zh-CN-YunjianNeural", "label": "云健 Yunjian（男，浑厚）" },
-    { "id": "zh-CN-XiaoxiaoNeural", "label": "晓晓 Xiaoxiao（女，温暖，泡芙默认）", "puffDefault": true },
-    { "id": "zh-CN-XiaoyiNeural", "label": "晓伊 Xiaoyi（女，活泼）" }
+    {
+      "id": "zh-CN-YunyangNeural",
+      "label": "云扬 Yunyang（男，科普默认）",
+      "scienceDefault": true
+    },
+    {
+      "id": "zh-CN-YunxiNeural",
+      "label": "云希 Yunxi（男，叙述）"
+    },
+    {
+      "id": "zh-CN-YunjianNeural",
+      "label": "云健 Yunjian（男，浑厚）"
+    },
+    {
+      "id": "zh-CN-XiaoxiaoNeural",
+      "label": "晓晓 Xiaoxiao（女，温暖，泡芙默认）",
+      "puffDefault": true
+    },
+    {
+      "id": "zh-CN-XiaoyiNeural",
+      "label": "晓伊 Xiaoyi（女，活泼）"
+    }
   ],
-  "voiceRates": ["-10%", "-5%", "+0%", "+5%", "+10%"],
+  "voiceRates": [
+    "-10%",
+    "-5%",
+    "+0%",
+    "+5%",
+    "+10%"
+  ],
   "aspects": [
-    { "id": "9:16", "label": "竖屏 9:16" },
-    { "id": "16:9", "label": "横屏 16:9" }
+    {
+      "id": "9:16",
+      "label": "竖屏 9:16"
+    },
+    {
+      "id": "16:9",
+      "label": "横屏 16:9"
+    }
   ],
   "lineDefaults": {
     "科普": {
@@ -75,38 +115,124 @@
     }
   },
   "forbiddenWatermark": {
-    "泡芙": ["Hobson 小党"]
+    "泡芙": [
+      "Hobson 小党"
+    ]
   },
   "stages": [
-    { "id": "选题", "owner": { "科普": "总管家", "泡芙": "泡芙" } },
-    { "id": "分镜", "owner": "视频制作" },
-    { "id": "制作", "owner": "视频制作" },
-    { "id": "交审", "owner": "自媒体运营", "ops": "交审" },
-    { "id": "P0过", "owner": "自媒体运营", "ops": "P0过" },
-    { "id": "改点中", "owner": "自媒体运营", "ops": "改点中" },
-    { "id": "文案已交", "owner": "微信增长 / X增长" },
-    { "id": "拷发就绪", "owner": "用户" },
-    { "id": "已发", "owner": "用户" },
-    { "id": "待复盘", "owner": "用户" },
-    { "id": "已复盘", "owner": "用户" }
+    {
+      "id": "选题",
+      "owner": {
+        "科普": "总管家",
+        "泡芙": "泡芙"
+      }
+    },
+    {
+      "id": "分镜",
+      "owner": "视频制作"
+    },
+    {
+      "id": "制作",
+      "owner": "视频制作"
+    },
+    {
+      "id": "交审",
+      "owner": "自媒体运营",
+      "ops": "交审"
+    },
+    {
+      "id": "P0过",
+      "owner": "自媒体运营",
+      "ops": "P0过"
+    },
+    {
+      "id": "改点中",
+      "owner": "自媒体运营",
+      "ops": "改点中"
+    },
+    {
+      "id": "文案已交",
+      "owner": "微信增长 / X增长"
+    },
+    {
+      "id": "拷发就绪",
+      "owner": "用户"
+    },
+    {
+      "id": "已发",
+      "owner": "用户"
+    },
+    {
+      "id": "待复盘",
+      "owner": "用户"
+    },
+    {
+      "id": "已复盘",
+      "owner": "用户"
+    }
   ],
-  "ops": ["未交审", "交审", "P0过", "改点中"],
-  "handoff": ["待拷发", "已拷发给用户"],
-  "publishStatus": ["草稿", "文案已交", "已发", "待复盘"],
+  "ops": [
+    "未交审",
+    "交审",
+    "P0过",
+    "改点中"
+  ],
+  "handoff": [
+    "待拷发",
+    "已拷发给用户"
+  ],
+  "publishStatus": [
+    "草稿",
+    "文案已交",
+    "已发",
+    "待复盘"
+  ],
   "platforms": [
-    { "id": "视频号", "copyOwner": "微信增长", "publishOwner": "用户" },
-    { "id": "抖音", "copyOwner": "", "publishOwner": "用户" },
-    { "id": "X", "copyOwner": "X增长", "publishOwner": "用户" },
-    { "id": "小红书", "copyOwner": "", "publishOwner": "用户" }
+    {
+      "id": "视频号",
+      "copyOwner": "微信增长",
+      "publishOwner": "用户"
+    },
+    {
+      "id": "抖音",
+      "copyOwner": "",
+      "publishOwner": "用户"
+    },
+    {
+      "id": "X",
+      "copyOwner": "X增长",
+      "publishOwner": "用户"
+    },
+    {
+      "id": "小红书",
+      "copyOwner": "",
+      "publishOwner": "用户"
+    }
   ],
   "copyTemplates": {
     "科普": {
-      "视频号": { "id": "kepu-channels", "owner": "微信增长", "note": "P0 过后交定稿。科普视频号模板，与泡芙分开。" },
-      "X": { "id": "kepu-x", "owner": "X增长", "note": "英文钩子，封面少字或无字。科普钉死模板。" }
+      "视频号": {
+        "id": "kepu-channels",
+        "owner": "微信增长",
+        "note": "P0 过后交定稿。科普视频号模板，与泡芙分开。"
+      },
+      "X": {
+        "id": "kepu-x",
+        "owner": "X增长",
+        "note": "英文钩子，封面少字或无字。科普钉死模板。"
+      }
     },
     "泡芙": {
-      "视频号": { "id": "puff-channels", "owner": "微信增长", "note": "宠物向文案。不套科普讲解模板。" },
-      "X": { "id": "puff-x", "owner": "X增长", "note": "宠物钩子英文。与科普钉死模板分开。" }
+      "视频号": {
+        "id": "puff-channels",
+        "owner": "微信增长",
+        "note": "宠物向文案。不套科普讲解模板。"
+      },
+      "X": {
+        "id": "puff-x",
+        "owner": "X增长",
+        "note": "宠物钩子英文。与科普钉死模板分开。"
+      }
     }
   }
 }

@@ -76,3 +76,23 @@ backups/
 *.tar.gz
 *.tgz
 # <<< box-backup exclusions <<<
+
+# >>> finance-data exclusions (never commit, decided 2026-10-21) >>>
+data/finance-workbench-state.json
+data/finance-workbench-state.json.*
+*.versions/
+data/write-audit.jsonl
+data/finance-requests*
+data/finance-releases/
+data/releases/
+data/fin-images/
+data/uploads/
+data/rescue-*/
+cici-finance-data/
+*.bak
+*.bak-*
+*.bak.*
+tail_login.json
+secret.key
+finance.env
+# <<< finance-data exclusions <<<

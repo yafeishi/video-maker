@@ -15,6 +15,9 @@ say() { printf '\n\033[1;35m■ %s\033[0m\n' "$*"; }
 say "1/4 检查 lines.json"
 node "$ROOT/tools/check-lines.mjs" "$F" || { echo "\n先按上面的 ✗ 改好 lines.json，再重新运行 sh tools/make.sh $1"; exit 1; }
 
+say "1b/4 钩子前3秒检查（docs/hook-check.md）"
+node "$ROOT/tools/check-hook.mjs" "$F" || { [ "${HOOK_SKIP:-0}" = 1 ] && echo "HOOK_SKIP=1：已记录 FAIL，继续出片（交付时要说明）" || { echo "\n先按上面的改法改开场台词；确认要保留就 HOOK_SKIP=1 sh tools/make.sh $1"; exit 1; }; }
+
 say "2/4 出片"
 sh "$F/build.sh" 2>&1 | tee "$F/out.log" | grep -Ev '^progress ' || true
 mkdir -p "$F/out"; mv "$F/out.log" "$F/out/build.log"

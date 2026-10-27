@@ -141,3 +141,26 @@ test('视频号和 X 的文案模板按线路分开，且不写播放数', () =>
     for (const p of data.platforms) assert.doesNotMatch(p.body, /播放|曝光|万/);
   }
 });
+
+test('泡芙一键简报：禁 Hobson、带 characterLocked、默认竖屏抖音', async () => {
+  const { normalizeBrief: nb } = await import('./config.mjs');
+  const b = nb({ line: '泡芙' });
+  assert.equal(b.aspect, '9:16');
+  assert.ok(b.platforms.includes('抖音'));
+  assert.match(b.characterLocked, /character-locked/);
+  assert.match(b.constraints, /实拍照片轮播/);
+  assert.doesNotMatch(JSON.stringify(b), /Hobson/);
+  assert.throws(() => nb({ line: '泡芙', watermark: 'Hobson 小党' }), /不能作为泡芙线的水印/);
+});
+
+test('双审闸 pipeline：保留旧状态、能看出卡在哪一闸', async () => {
+  const { normalizeStatus: ns, gateOf } = await import('./config.mjs');
+  assert.equal(ns({ stage: '制作' }).pipeline, null);
+  const prev = ns({ stage: '制作', pipeline: { state: 'remix_pending_review' } });
+  assert.equal(prev.pipeline.state, 'remix_pending_review');
+  assert.equal(ns({ stage: '交审' }, { prev }).pipeline.state, 'remix_pending_review');
+  assert.equal(gateOf({ state: 'remix_pending_review' }).gate, 'A');
+  assert.equal(gateOf({ state: 'render_done' }).gate, 'B');
+  assert.equal(gateOf(null).state, null);
+  assert.throws(() => ns({ pipeline: { state: 'published_by_bot' } }), /pipeline.state/);
+});

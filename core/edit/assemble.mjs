@@ -1,5 +1,6 @@
 // 按 timeline.json 切、叠化、混旁白、响度，出横屏成片（默认 1920×1080，尺寸来自 film.json）。
-// 竖屏以后改 film.json 的 width/height 即可走同一条 scale+pad；安全区和字幕位置还没单独做。
+// 竖屏（高>宽）自动启用安全区（lib.mjs safeArea）：画面缩进安全框，字幕 y 见 events.caption。横屏不变。
+import { framingFilter } from './reframe.mjs';
 import fs from 'fs';
 import path from 'path';
 import { ROOT, ffmpeg, ffprobe, inside, pythonBin, readJSON, round, run, writeJSON } from './lib.mjs';
@@ -47,19 +48,22 @@ function between(t0, t1) {
 async function fileInfo(abs, cache) {
   if (cache.has(abs)) return cache.get(abs);
   const j = await ffprobe(abs);
-  const info = { dur: +j.format?.duration || 0, hasAudio: (j.streams || []).some(s => s.codec_type === 'audio') };
+  const vs = (j.streams || []).find(s => s.codec_type === 'video') || {};
+  const info = { w: +vs.width || 0, h: +vs.height || 0, dur: +j.format?.duration || 0, hasAudio: (j.streams || []).some(s => s.codec_type === 'audio') };
   cache.set(abs, info);
   return info;
 }
 
-async function renderSegment(abs, seg, cfg, mp4, wav, hasAudio) {
+async function renderSegment(abs, seg, cfg, mp4, wav, info) {
+  const hasAudio = info.hasAudio;
   const frames = Math.max(2, Math.round((seg.out - seg.in) * cfg.fps));
   const durOut = frames / cfg.fps;
   const ss = seg.in.toFixed(3), t = durOut.toFixed(3);
   // -ss / -t 放在 -i 前面。放在后面时，滤镜会把时间戳归零，输出端再 seek 会把声音切成空文件，acrossfade 会卡住。
+  const fr = await framingFilter(abs, seg, cfg, { srcW: info.w, srcH: info.h });
+  seg.how = fr.how;
   const vf = [
-    `scale=${cfg.width}:${cfg.height}:force_original_aspect_ratio=decrease:flags=lanczos`,
-    `pad=${cfg.width}:${cfg.height}:(ow-iw)/2:(oh-ih)/2:black`,
+    ...fr.vf,
     `fps=${cfg.fps}`, 'format=yuv420p', 'settb=AVTB', 'setpts=PTS-STARTPTS',
   ].join(',');
   await ffmpeg(['-loglevel', 'error', '-y', '-ss', ss, '-t', t, '-i', abs, '-an', '-vf', vf, '-frames:v', String(frames), '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '16', '-pix_fmt', 'yuv420p', '-r', String(cfg.fps), mp4]);
@@ -100,9 +104,10 @@ export async function assemble(film, cfg) {
     if (out > info.dur + 0.08) throw new Error(`片段 ${seg.id || i + 1} 的 out ${out} 超过素材时长 ${info.dur.toFixed(2)}（${seg.src}）`);
     const mp4 = path.join(work, `seg-${String(i + 1).padStart(2, '0')}.mp4`);
     const wav = path.join(work, `seg-${String(i + 1).padStart(2, '0')}.wav`);
-    const vdur = await renderSegment(abs, { ...seg, in: inn, out: Math.min(out, info.dur) }, cfg, mp4, wav, info.hasAudio);
+    const segRun = { ...seg, in: inn, out: Math.min(out, info.dur) };
+    const vdur = await renderSegment(abs, segRun, cfg, mp4, wav, info);
     built.push({ ...seg, in: inn, out, vdur, mp4, wav });
-    console.log(`片段 ${seg.id || i + 1}  ${vdur.toFixed(2)}s  ${seg.role || ''}  ← ${seg.src} ${inn.toFixed(2)}–${out.toFixed(2)}`);
+    console.log(`片段 ${seg.id || i + 1}  ${vdur.toFixed(2)}s  ${seg.role || ''}  [${segRun.how}]  ← ${seg.src} ${inn.toFixed(2)}–${out.toFixed(2)}`);
   }
 
   const fades = built.map((seg, i) => fadeOf(i ? built[i - 1] : null, seg, { transition }));
@@ -157,7 +162,7 @@ export async function assemble(film, cfg) {
 
   const assembly = {
     version: 1, generated: new Date().toISOString(), dur: events.dur,
-    output: `out/${name}.mp4`, width: v.width, height: v.height, fps: cfg.fps,
+    output: `out/${name}.mp4`, width: v.width, height: v.height, fps: cfg.fps, safe: cfg.safe, caption: cfg.caption,
     segments: built.map(s => ({ id: s.id, shot: s.shot, role: s.role, src: s.src, in: s.in, out: s.out, t0: s.t0, t1: s.t1, fade: s.fade })),
     cues: events.cues,
   };

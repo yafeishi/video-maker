@@ -73,7 +73,25 @@ export function loadFilm(film) {
     silenceNoise: /^-?\d+(\.\d+)?dB$/.test(cfg.silenceNoise || '') ? cfg.silenceNoise : '-36dB',
     target: { min, max, segments: [segMin, segMax] },
     transition: { cut, role },
+    framing: cfg.framing === 'auto' || cfg.framing === 'letterbox' || (cfg.framing && typeof cfg.framing === 'object') ? cfg.framing : null,
+    ...safeArea(cfg, width, height),
   };
+}
+
+// 竖屏（高>宽）默认启用安全区：上 12%、下 14%、左右 5%；画面缩进安全框内，字幕 y 落在底部安全区上沿。
+// 横屏默认 safe=null（行为不变）；film.json 写 "safe": {...} 可强制开启，"safe": false 关闭。
+export function safeArea(cfg, width, height) {
+  const vertical = height > width;
+  const want = cfg.safe === false ? null : (cfg.safe && typeof cfg.safe === 'object') ? cfg.safe : (vertical ? {} : null);
+  if (!want) return { safe: null, caption: null };
+  const pct = (v, d) => clamp(v == null ? d : +v, 0, 0.4);
+  const safe = { top: pct(want.top, 0.12), bottom: pct(want.bottom, 0.14), left: pct(want.left, 0.05), right: pct(want.right, 0.05) };
+  const box = {
+    x: even(width * safe.left), y: even(height * safe.top),
+    w: even(width * (1 - safe.left - safe.right)), h: even(height * (1 - safe.top - safe.bottom)),
+  };
+  const yPct = clamp(+(cfg.caption?.yPct ?? (1 - safe.bottom - 0.02)), 0.5, 1 - safe.bottom);
+  return { safe: { ...safe, box }, caption: { yPct, y: Math.round(height * yPct) } };
 }
 
 export function pythonBin() {

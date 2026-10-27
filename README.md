@@ -1,5 +1,7 @@
 # video-maker · 视频工作台
 
+产品定位：对标视频 → 全自动二创 → 人工审批 → 自动剪辑 → 再审批发布（见 [docs/ops-remix-pipeline.md](docs/ops-remix-pipeline.md)）。
+
 用代码导演和渲染短片。每部片是一个网页：`render(t)` 画出第 t 秒的画面，无头 Chrome 逐帧截图；配音、配乐、拟音、字幕都跟着同一条时间线，最后 ffmpeg 出片。附一个浏览器里的**工作台**：选片、实时预览、拖时间轴、一键渲染、看日志、播成片。
 
 ![工作台](docs/studio.jpg)
@@ -29,6 +31,9 @@ npm run studio           # 打开 http://127.0.0.1:4400
 
 ```sh
 sh tools/new-film.sh keynote my-launch      # 新建
+sh tools/new-puff-film.sh puff-xx         # 泡芙一键简报：竖屏抖音 + character-locked，水印为空（禁「Hobson 小党」）
+node tools/check-hook.mjs films/my-launch  # 钩子前3秒检查（成片前必跑）
+node tools/status-pending.mjs              # 日产 Pending 回报
 sh films/my-launch/build.sh                 # 一键出片 → films/my-launch/out/my-launch.mp4
 sh films/my-launch/build.sh events audio mux    # 只重混音
 ```

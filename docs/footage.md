@@ -2,7 +2,7 @@
 
 代码片是 `render(t)` 一帧帧画出来的。素材片是把 `raw/` 里已有的视频剪成一条有起承转合的短片。两边都在这个工作台里，成片和发布文案走同一套 `out/`。
 
-默认出 **横屏 1920×1080**。`film.json` 里的 `width` / `height` 会传给组装（缩放并补边）。竖屏 1080×1920 可以改这两个数先跑起来，安全区、字幕位置和封面裁切还没单独做。
+默认出 **横屏 1920×1080**。`film.json` 里的 `width` / `height` 会传给组装（缩放并补边）。竖屏（高>宽，如 1080×1920）**自动启用安全区**：上 12%、下 14%、左右 5%，画面缩放进安全框居中，避开顶部刘海/标题栏和底部操作栏；字幕 y 默认落在底部安全区上沿（`caption.yPct`≈0.84），写进 `events.json` 的 `safe` / `caption`。可在 `film.json` 覆盖：`"safe": {"top":0.12,"bottom":0.14,"left":0.05,"right":0.05}`、`"caption": {"yPct":0.82}`；`"safe": false` 关闭。横屏默认不变。**主体智能裁（2026-10-27）**：竖屏默认 `framing:"auto"`——横素材进竖画布时，`core/edit/reframe.mjs` 调 `core/edit/detect_subject.py`（MediaPipe FaceDetector，blaze_face_short_range，模型缓存 `~/.cache/video-maker/`）每段采样 5 帧取最大脸中位框，按安全框比例裁、主体中心放在裁框 38% 高度处；没检出人脸、没装 mediapipe 或源不比安全框宽时回退 letterbox，组装日志 `[letterbox(回退：…)]` 写明原因。`film.json` 或 `timeline.json` 的 segment 可写 `"framing": "auto" | "letterbox" | {"x","y","w","h"}`（源像素手动裁框）。依赖：`pip install mediapipe opencv-python-headless`（见 requirements.txt）；`VM_PYTHON` 可指定解释器。目前只检人脸，无脸的主体（宠物/物体）回退 letterbox。样例：`docs/reframe-sample.jpg`。**还没做**：封面自动裁切、素材片烧录字幕（目前只出 srt）。
 
 理解画面的是 **Bot（盒子上的 Grok）**，不是仓库里的第三方模型，也不需要 OpenAI 一类的 key。本地只跑 ffmpeg、edge-tts 和确定性的启发式。
 

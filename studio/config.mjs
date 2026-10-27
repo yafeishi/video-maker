@@ -107,7 +107,7 @@ export function normalizeBrief(raw) {
   brief.durationSec = parseDuration(raw.durationSec);
   brief.audience = asText(raw.audience, 120, '受众');
   if (raw.platforms != null && !Array.isArray(raw.platforms)) throw new Error('平台要是列表');
-  const picked = raw.platforms || [];
+  const picked = raw.platforms == null ? (defaults.platforms || []) : raw.platforms;
   if (picked.some(p => typeof p !== 'string' || !PLATFORMS.includes(p))) throw new Error('平台只能选视频号、抖音、X、小红书');
   const platforms = PLATFORMS.filter(p => picked.includes(p));
   brief.platforms = platforms;
@@ -128,8 +128,11 @@ export function normalizeBrief(raw) {
   brief.notes = asText(raw.notes, 2000, '备注');
   if (raw.cta != null && typeof raw.cta !== 'boolean') throw new Error('CTA 只能是勾选或不勾选');
   brief.cta = raw.cta === true;
+  if (raw.benchmarkUrl != null) brief.benchmarkUrl = asText(raw.benchmarkUrl, 400, '对标链接');
+  if (raw.benchmarkNotes != null) brief.benchmarkNotes = asText(raw.benchmarkNotes, 2000, '对标备注');
   if (line === '泡芙') {
     brief.character = '比熊泡芙';
+    brief.characterLocked = defaults.characterLocked;
     brief.constraints = PUFF_CONSTRAINTS;
   }
   const flags = {};
@@ -152,8 +155,32 @@ export function defaultStatus(line) {
     handoff: '待拷发',
     publish: emptyPublish(),
     notes: '',
+    pipeline: null,
     updatedAt: null,
   };
+}
+// 双审闸：A=二创稿（remix），B=成片发布。pipeline 可为空（旧片）。
+const PIPE_IDS = (catalog.pipeline || []).map(p => p.id);
+export function normalizePipeline(raw) {
+  if (raw == null || raw === '') return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw new Error('pipeline 格式不对');
+  const state = raw.state;
+  if (typeof state !== 'string' || !PIPE_IDS.includes(state)) throw new Error(`pipeline.state 只能是 ${PIPE_IDS.join(' / ')}`);
+  const out = { state };
+  for (const k of ['reviewA', 'reviewB']) {
+    const r = raw[k];
+    if (r && typeof r === 'object') out[k] = { by: asText(r.by, 40, '审批人'), at: asUpdatedAt(r.at), notes: asText(r.notes, 2000, '审批意见') };
+  }
+  out.updatedAt = asUpdatedAt(raw.updatedAt);
+  return out;
+}
+export function gateOf(pipeline) {
+  const def = (catalog.pipeline || []).find(p => p.id === pipeline?.state);
+  if (!def) return { state: null, gate: null, label: '未进二创流水线', owner: '' };
+  return { state: def.id, gate: def.gate, label: def.label, owner: def.owner };
+}
+export function rhythmOf(stage) {
+  return catalog.stageRhythm?.[stage] || stage;
 }
 function asUpdatedAt(v) {
   return typeof v === 'string' && v ? v : null;
@@ -190,6 +217,7 @@ export function normalizeStatus(raw, { line = '', prev = null, stamp = false } =
   }
   return {
     stage, owner, ownerLocked, ops, handoff, publish, notes,
+    pipeline: raw.pipeline === undefined ? normalizePipeline(prev?.pipeline ?? null) : normalizePipeline(raw.pipeline),
     updatedAt: stamp ? now : asUpdatedAt(raw.updatedAt),
   };
 }

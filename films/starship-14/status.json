@@ -1,0 +1,32 @@
+{
+  "stage": "拷发就绪",
+  "owner": "用户",
+  "ownerLocked": false,
+  "ops": "未交审",
+  "handoff": "已拷发给用户",
+  "publish": {
+    "视频号": {
+      "status": "草稿",
+      "notes": "",
+      "updatedAt": null
+    },
+    "抖音": {
+      "status": "草稿",
+      "notes": "",
+      "updatedAt": null
+    },
+    "X": {
+      "status": "草稿",
+      "notes": "",
+      "updatedAt": null
+    },
+    "小红书": {
+      "status": "草稿",
+      "notes": "",
+      "updatedAt": null
+    }
+  },
+  "notes": "历史交付：/workspace/video-deliveries/2026-09-30-starship-14/。补建初值，审片/发布实况未核，勿当已发。",
+  "pipeline": null,
+  "updatedAt": "2026-10-27T11:56:44.604Z"
+}

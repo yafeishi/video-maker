@@ -1,3 +1,10 @@
+# OPS 产品定位（必读）
+
+**找好对标 → 全自动二创 → 用户审批 A → 自动剪辑 → 用户审批 B 再发布。**  
+人工只卡两道闸；不搬运原片；不代发。细则见 [`docs/ops-remix-pipeline.md`](docs/ops-remix-pipeline.md)。
+
+---
+
 # 给 Agent 的说明
 
 这个仓库是一个**视频工作台**。代码片是暴露 `render(t)` 的网页，无头 Chrome 逐帧截图，配音、配乐、拟音和字幕由同一条时间线驱动，最后 ffmpeg 出片。素材片（`film.json` 里 `kind: "footage"`）不画帧，走 `core/edit/`：本地做镜头检测和组装，**看画面、写节拍的是你**。`studio/` 是浏览器里的预览与渲染界面。
@@ -36,7 +43,7 @@
 4. `node core/edit/run.mjs films/<片名> voice assemble copy check`。成片在 `out/<片名>.mp4`，旁边有 srt、海报和发布文案。
 5. 没看画面就不要假装看过。来不及写节拍时可以跑完整 `build.sh`，那是时长/动静启发式（`source: "fallback"`），交付时要说明。
 
-标成 `bot` 或 `human` 的 beats / timeline / lines，重跑不会覆盖。不要设 `FORCE=1`，除非用户要推倒重来。默认横屏 1920×1080。竖屏只改 `film.json` 的宽高还不够用，安全区还没做，先跟用户说。
+标成 `bot` 或 `human` 的 beats / timeline / lines，重跑不会覆盖。不要设 `FORCE=1`，除非用户要推倒重来。默认横屏 1920×1080。竖屏改 `film.json` 宽高为 1080×1920 即自动启用安全区（上12%/下14%/左右5%，可用 `safe`/`caption.yPct` 覆盖，见 docs/footage.md）；智能主体裁切还没做，横素材进竖屏是缩进安全框加黑边。
 
 ## 两种做法
 
@@ -68,6 +75,19 @@
 - 只在 `films/<片名>/` 里工作（默认不进 git；用户要提交某部片时，在 `.gitignore` 里加例外）。
 - `core/` 是共用工具（渲染、配音、音效、合成器、混音、字体裁剪），`templates/` 是模板。为某部片改需求时不要改 `core/` 或 `templates/`；确实要改通用工具时，单独说明并保持向后兼容。
 - 不要杀不是你启动的进程，不要留下后台进程。工作台（`npm run studio`）由用户自己开关。
+
+## 流量向 OPS 流水线（必读）
+
+- **双审闸**：`status.json.pipeline.state`：`benchmark_ready` → `remix_pending_review`（卡审批 A）→ `remix_approved` / `remix_rejected` → `render_done`（卡审批 B）→ `publish_approved`（只记状态，用户亲自发）。
+  - 对标入库：`node tools/init-benchmark.mjs films/<片> --url <链接>`（写 `benchmark.json`，不下载不搬运）
+  - 交审批 A：`node tools/pipeline.mjs films/<片> set remix_pending_review`
+  - 用户拍板后代记：`approve-a --note "…"` / `reject-a --note "意见"`（意见回写 TREATMENT.md + status.notes）/ `approve-b`
+  - 渲染只走闸门：`node tools/build-if-approved.mjs films/<片>`（未 `remix_approved` 拒绝渲染；成功后标 `render_done` 并生成文案交接）
+- **钩子前3秒成片前必跑**：`node tools/check-hook.mjs films/<片>`（FAIL=1，`make.sh` 自动跑；四大死法见 docs/hook-check.md）。
+- **日产 Pending 回报**：`node tools/status-pending.mjs [--json]`（节奏 选题→分镜→渲染→审片→文案包→待发，对应 stage 选题/分镜/制作/交审·P0过·改点中/文案已交/拷发就绪）。不代发、不编播放数。
+- **泡芙一键简报**：`sh tools/new-puff-film.sh <片> [模板] [墨镜]` 或 `sh tools/new-film.sh <模板> <片> --line 泡芙`：竖屏 9:16、抖音、`characterLocked=/workspace/bichon-puff-refs/character-locked/`、禁实拍轮播充动画、**水印为空，绝不写「Hobson 小党」**。科普：`--line 科普`。
+- **交付分轨**：`sh tools/deliver.sh` 出高清（out 主成片原样）+ `preview-chat.mp4`（H.264 Baseline 540p，目标 ≤约3MB；失败不阻断，READY.md 写明）。
+- **文案对接增长岗**：`out/copy-*.md` 文末有「交接」段，`out/copy-handoff.md` 总交接页：视频号→微信增长、X→X增长做 500+ 润色排期；抖音/小红书交审由用户发。全部不代发。
 
 ## 常用命令
 

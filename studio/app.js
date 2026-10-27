@@ -13,7 +13,8 @@ async function loadProjects() {
   S.projects = await api('/api/projects');
   const films = S.projects.filter(p => p.kind === 'film' && (!S.lineFilter || p.task?.line === S.lineFilter));
   const temps = S.projects.filter(p => p.kind === 'template');
-  const sub = p => p.task ? [p.task.line || '未分线', p.task.stage, p.task.owner].filter(Boolean).join(' · ') : '';
+  const gateTxt = t => t.gate?.state ? (t.gate.gate ? `卡闸${t.gate.gate}·${t.gate.label}` : t.gate.label) : '';
+  const sub = p => p.task ? [p.task.line || '未分线', gateTxt(p.task), p.task.stage, p.task.owner].filter(Boolean).join(' · ') : '';
   const item = p => el('li', { class: S.cur?.path === p.path ? 'on' : '', 'data-path': p.path, onclick: () => select(p.path) },
     el('div', { class: 'thumb', style: p.poster ? `background-image:url("${p.poster}?${p.updated}")` : '' }, p.poster ? '' : (p.filmKind === 'footage' ? '素材' : 'render(t)')),
     el('div', { class: 'meta' }, p.film ? el('span', { class: 'badge' }, '已出片') : (p.filmKind === 'footage' ? el('span', { class: 'badge' }, '素材') : ''), el('b', {}, p.title), el('span', { class: 'sub' }, sub(p) || p.path)));
@@ -562,7 +563,7 @@ function paintTask(task, force = false) {
     el('div', { class: 'field' }, el('span', { class: 'lbl' }, '各平台发布态'), el('div', { class: 'pub' }, ...pubs)),
     el('p', { class: 'hint' }, '视频号 / 抖音 / X / 小红书都是草稿、文案已交、已发、待复盘。没有人代发，也不会去登录平台。'),
     el('label', { class: 'field' }, '任务备注', notes));
-  host.replaceChildren(form);
+  host.replaceChildren(form, gateBlock(p, task));
   const hint = q => host.querySelector(q);
   function refreshOwnerHint() {
     const suggest = ownerFor(stageSel.value, line);
@@ -577,6 +578,38 @@ function paintTask(task, force = false) {
   ownerInput.addEventListener('input', () => { lock.checked = true; });
   refreshOwnerHint();
   st.textContent = task.saved ? `已读取 ${p.path}/status.json。` : '还没写入 status.json。改完点保存，只会写这个文件。';
+}
+// 双审闸按钮：只改审批态（POST /api/gate），不渲染、不发帖；须本人点击。
+function gateBlock(p, task) {
+  const g = task.gate || {};
+  const box = el('div', { class: 'field gate-box' },
+    el('span', { class: 'lbl' }, '双审闸'),
+    el('p', { class: 'hint' }, g.state ? `当前：${g.state} · ${g.label}${g.gate ? `（卡审批 ${g.gate}，等${g.owner}）` : ''}` : '未进二创流水线'));
+  const note = el('textarea', { rows: '2', maxlength: '2000', placeholder: '审批意见（驳回必填）' });
+  const msg = el('p', { class: 'hint' }, '');
+  const act = async (action, label) => {
+    const n = note.value.trim();
+    if (action.startsWith('reject') && !n) { msg.textContent = '驳回要先写意见。'; return; }
+    if (!confirm(`确认${label}？只改审批态，不会渲染、不会发帖。`)) return;
+    try {
+      const r = await api('/api/gate', { path: p.path, action, note: n, clicked: true });
+      S.cur.task = { ...S.cur.task, ...r.task };
+      paintTask(S.cur.task, true);
+      $('#taskStatus').textContent = action === 'approve-a' ? '审批 A 已通过。需要出片时再手动运行：node tools/build-if-approved.mjs ' + p.path : `已记录：${label}`;
+      await loadProjects();
+    } catch (e) { msg.textContent = e.message; }
+  };
+  const btns = [];
+  if (g.state === 'remix_pending_review') btns.push(
+    el('button', { type: 'button', class: 'primary', onclick: () => act('approve-a', '通过审批 A（二创稿）') }, '通过 A'),
+    el('button', { type: 'button', onclick: () => act('reject-a', '驳回审批 A') }, '驳回 A'));
+  if (g.state === 'render_done') btns.push(
+    el('button', { type: 'button', class: 'primary', onclick: () => act('approve-b', '通过审批 B（成片可发）') }, '通过 B'),
+    el('button', { type: 'button', onclick: () => act('reject-b', '驳回审批 B') }, '驳回 B'));
+  if (btns.length) box.append(note, el('div', { class: 'btns' }, ...btns));
+  else box.append(el('p', { class: 'hint' }, '当前没有待审批的闸。'));
+  box.append(msg);
+  return box;
 }
 function readTask() {
   const host = $('#taskHost');
@@ -665,7 +698,8 @@ function setLineFilter(line) {
   document.querySelectorAll('#lineFilters button').forEach(b => b.classList.toggle('on', b.dataset.line === line));
   const films = S.projects.filter(p => p.kind === 'film' && (!line || p.task?.line === line));
   const temps = S.projects.filter(p => p.kind === 'template');
-  const sub = p => p.task ? [p.task.line || '未分线', p.task.stage, p.task.owner].filter(Boolean).join(' · ') : '';
+  const gateTxt = t => t.gate?.state ? (t.gate.gate ? `卡闸${t.gate.gate}·${t.gate.label}` : t.gate.label) : '';
+  const sub = p => p.task ? [p.task.line || '未分线', gateTxt(p.task), p.task.stage, p.task.owner].filter(Boolean).join(' · ') : '';
   const item = p => el('li', { class: S.cur?.path === p.path ? 'on' : '', 'data-path': p.path, onclick: () => select(p.path) },
     el('div', { class: 'thumb', style: p.poster ? `background-image:url("${p.poster}?${p.updated}")` : '' }, p.poster ? '' : (p.filmKind === 'footage' ? '素材' : 'render(t)')),
     el('div', { class: 'meta' }, p.film ? el('span', { class: 'badge' }, '已出片') : (p.filmKind === 'footage' ? el('span', { class: 'badge' }, '素材') : ''), el('b', {}, p.title), el('span', { class: 'sub' }, sub(p) || p.path)));

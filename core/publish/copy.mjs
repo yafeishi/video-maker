@@ -149,9 +149,20 @@ export function write(dir, data) {
   for (const p of data.platforms) {
     const doc = [`# ${p.name} · 《${data.source.title}》`, p.title && p.id !== 'x' ? `## 标题\n\n${p.title}` : '', `## ${p.id === 'x' ? '推文' : '正文'}\n\n${p.body}`,
       p.warnings.length ? `## 注意\n\n${p.warnings.map(w => `- ${w}`).join('\n')}` : ''].filter(Boolean).join('\n\n');
-    fs.writeFileSync(path.join(out, `copy-${p.id}.md`), doc + '\n');
+    fs.writeFileSync(path.join(out, `copy-${p.id}.md`), doc + '\n\n' + HANDOFF[p.id] + '\n');
   }
+  const mp4 = fs.readdirSync(out).filter(f => f.endsWith('.mp4'));
+  let st = null; try { st = JSON.parse(fs.readFileSync(path.join(dir, 'status.json'), 'utf8')); } catch {}
+  const page = [`# 文案交接 · 《${data.source.title}》`, '',
+    `- 片目录：${dir}`, `- 成片：${mp4.map(f => path.join(out, f)).join('、') || '（还没出片）'}`,
+    `- 阶段：${st?.stage || '—'} · 审批闸：${st?.pipeline?.state || '—'}`, '',
+    '| 平台 | 文案 | 交给 |', '|---|---|---|',
+    ...data.platforms.map(p => `| ${p.name} | ${path.join(out, `copy-${p.id}.md`)} | ${OWNER[p.id]} |`), '',
+    '增长岗只做 500+ 播放向润色与排期，不代发；审批 B（publish_approved）只记状态，由用户亲自发。不写、不编播放数。'].join('\n');
+  fs.writeFileSync(path.join(out, 'copy-handoff.md'), page + '\n');
 }
+const OWNER = { channels: '微信增长（视频号）', x: 'X增长（X）', xhs: '交审（用户发）', douyin: '交审（用户发）' };
+const HANDOFF = Object.fromEntries(Object.entries(OWNER).map(([id, who]) => [id, `## 交接\n\n- 交给：${who}${/增长/.test(who) ? '，做 500+ 播放向润色与排期' : '，运营审片后由用户定稿'}\n- **不代发**：机器人不登录、不发帖；人工确认（审批 B）后由用户亲自发。\n- 不编造播放数据。`]));
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const dir = process.argv[2];

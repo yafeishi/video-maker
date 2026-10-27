@@ -123,3 +123,26 @@ test('paths cannot escape the film directory', () => {
   assert.throws(() => resolveFilm('/tmp'));
   assert.equal(resolveFilm(keynote).endsWith(`${path.sep}templates${path.sep}keynote`), true);
 });
+
+import { cropFor, framingFilter, framingMode } from './reframe.mjs';
+test('reframe: 人脸框偏右时竖裁跟到主体，并夹在源画面内', () => {
+  const c = cropFor({ srcW: 1920, srcH: 1080, dstW: 972, dstH: 1428, box: [0.8, 0.2, 0.1, 0.2] });
+  assert.equal(c.h, 1080); assert.equal(c.w, 734);
+  assert.equal(c.x, 1920 - 734); assert.equal(c.y, 0);
+  const mid = cropFor({ srcW: 1920, srcH: 1080, dstW: 972, dstH: 1428, box: [0.45, 0.3, 0.1, 0.2] });
+  assert.ok(Math.abs(mid.x + mid.w / 2 - 960) <= 1);
+});
+test('reframe: 模式默认值与 mock 检测/回退', async () => {
+  const v = { width: 1080, height: 1920, safe: { box: { x: 54, y: 230, w: 972, h: 1428 } } };
+  assert.equal(framingMode({}, v), 'auto');
+  assert.equal(framingMode({}, { width: 1920, height: 1080 }), 'letterbox');
+  assert.equal(framingMode({ framing: 'letterbox' }, v), 'letterbox');
+  const hit = await framingFilter('x.mp4', { in: 0, out: 2 }, v, { srcW: 1920, srcH: 1080 }, async () => ({ box: [0.7, 0.2, 0.1, 0.2] }));
+  assert.match(hit.how, /^auto /); assert.match(hit.vf[0], /^crop=734:1080:/);
+  const miss = await framingFilter('x.mp4', { in: 0, out: 2 }, v, { srcW: 1920, srcH: 1080 }, async () => ({ box: null }));
+  assert.match(miss.how, /^letterbox\(回退/); assert.match(miss.vf[0], /force_original_aspect_ratio=decrease/);
+  const err = await framingFilter('x.mp4', { in: 0, out: 2 }, v, { srcW: 1920, srcH: 1080 }, async () => ({ error: 'No module named mediapipe' }));
+  assert.match(err.how, /mediapipe/);
+  const tall = await framingFilter('x.mp4', { in: 0, out: 2 }, v, { srcW: 1080, srcH: 1920 }, async () => { throw new Error('不该调'); });
+  assert.match(tall.how, /源不更宽/);
+});

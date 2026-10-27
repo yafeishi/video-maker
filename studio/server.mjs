@@ -5,7 +5,8 @@ import fs from 'fs'; import path from 'path'; import { spawn } from 'child_proce
 import { serve, sendFile } from '../core/render/serve.mjs';
 import { placeSegments } from '../core/edit/timeline.mjs';
 import { addCTA } from '../tools/add-cta.mjs';
-import { catalog, defaultOwner, defaultStatus, normalizeBrief, normalizeStatus } from './config.mjs';
+import { applyGate } from '../tools/pipeline-lib.mjs';
+import { catalog, defaultOwner, defaultStatus, gateOf, normalizeBrief, normalizeStatus } from './config.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2), opt = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
@@ -120,7 +121,7 @@ function taskOf(rel, abs) {
     line, stylePack: brief?.stylePack || '', style: brief?.style || '', voice: brief?.voice || '',
     voiceRate: brief?.voiceRate || '', watermark: brief?.watermark || '', aspect: brief?.aspect || '',
     stage: status.stage, owner: status.owner, ownerLocked: !!status.ownerLocked, ops: status.ops,
-    handoff: status.handoff, publish: status.publish, notes: status.notes || '', updatedAt: status.updatedAt,
+    handoff: status.handoff, publish: status.publish, pipeline: status.pipeline || null, gate: gateOf(status.pipeline), notes: status.notes || '', updatedAt: status.updatedAt,
     saved: !!status.saved, briefError, statusError,
   };
 }
@@ -301,6 +302,17 @@ async function api(req, res, u) {
       const raw = Object.prototype.hasOwnProperty.call(b, 'task') ? b.task : (() => { const rest = { ...b }; delete rest.path; return rest; })();
       if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) throw new Error('缺少任务状态');
       return json(res, 200, { path: rel, task: saveStatus(rel, raw) }), true;
+    }
+    if (u === '/api/gate' && req.method === 'POST') {
+      // 审批 A/B 网页按钮：只改审批态，不渲染、不发帖。须用户本人在网页点击。
+      const b = await body(req);
+      const dir = filmDir(b.path);
+      if (!dir) return json(res, 404, { error: '项目不存在' }), true;
+      if (!['approve-a', 'reject-a', 'approve-b', 'reject-b'].includes(b.action)) throw new Error('action 只能是 approve-a / reject-a / approve-b / reject-b');
+      if (b.clicked !== true) throw new Error('审批须本人在网页点击');
+      applyGate(dir, b.action, { by: '用户（工作室网页）', note: b.note || '' });
+      const task = readStatus(b.path);
+      return json(res, 200, { path: b.path, task: { ...task, gate: gateOf(task.pipeline) } }), true;
     }
     if (u === '/api/edit' && req.method === 'GET') {
       const dir = projectDir(q.get('path'));

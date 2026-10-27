@@ -69,6 +69,8 @@ Bot 写 `edit/beats.json`、`edit/timeline.json`、`lines.json`，`source: "bot"
 
 #### P0-1 竖屏画幅 + 安全区 + 字幕/封面位置
 
+> **状态（2026-10-27）：部分完成。** 已做：竖屏自动安全区（12/14/5%）、`film.json` `safe`/`caption.yPct`、scale+pad 进安全框、events 记 safe/caption、横屏不变。未做：素材片字幕烧录、poster 取景避让；主体裁切已做（见 P1-1）；尚未用真 1080×1920 素材片全链路验收。
+
 - **目标**：`1080×1920`（及常见竖屏）成片时，画面裁切/补边、旁白字幕烧录或 srt 风格位置、`poster.jpg` 取景避开刘海与底栏操作区。
 - **接到**：`film.json`（`width`/`height`，可选 `safe` / `caption` 字段）；`core/edit/assemble.mjs`（scale/pad 或 center-crop 策略）；`core/render/srt.py` 或 assemble 内字幕竖排参数；`docs/footage.md`。
 - **不引入 AGPL**：自己定安全区百分比（可参考业界常见上下约 10–15%，以我们审片为准），不抄 Pireel caption preset 实现。
@@ -92,7 +94,7 @@ Bot 写 `edit/beats.json`、`edit/timeline.json`、`lines.json`，`source: "bot"
 
 | ID | 目标 | 接到 | 验收 |
 |---|---|---|---|
-| P1-1 | 竖屏「主体 reframing」：按镜头选 crop（脸/主体偏上），而不仅是 letterbox | `timeline.segments[].crop` 或 `framing`；`assemble.mjs` | 同一 raw 横竖各一版，竖版主体不贴边 |
+| P1-1 | 竖屏「主体 reframing」：按镜头选 crop（脸/主体偏上），而不仅是 letterbox | `timeline.segments[].crop` 或 `framing`；`assemble.mjs` | 同一 raw 横竖各一版，竖版主体不贴边 | **✅ 2026-10-27 已做**：`core/edit/reframe.mjs` + `detect_subject.py`（MediaPipe 人脸），`framing: auto/letterbox/{crop}`，失败回退 letterbox；无脸主体仍待做 |
 | P1-2 | 多版本 output 假设：同一 `beats` 导出 2 条 timeline（不同 hook / 时长） | `edit/timeline.json` 允许多文件或 `variants[]`；`run.mjs` 参数；Studio 素材页切换 | 两条成片时长/开场不同，共用 shots/frames |
 | P1-3 | 源片口播清理路径（可选）：对「讲话为主」的 raw 做本地静音/句级切，写入 shots 或旁路 `edit/speech.json` | `shots.mjs` 或新步骤；**本地** ffmpeg/whisper 自选，默认关闭 | 口播样片去大段死气后仍能进起承转合；纯画面素材不受影响 |
 | P1-4 | 字幕样式档位（2～3 档：纪录片整句 / 口播强调），竖屏 `yPct` | assemble 或后处理烧录；`film.json.captionPreset` | 切换档位可复现；不引入 18 套 Pireel preset |

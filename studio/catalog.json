@@ -111,7 +111,11 @@
       "voice": "zh-CN-XiaoxiaoNeural",
       "voiceRate": "+0%",
       "watermark": "",
-      "aspect": "9:16"
+      "aspect": "9:16",
+      "characterLocked": "/workspace/bichon-puff-refs/character-locked/",
+      "platforms": [
+        "抖音"
+      ]
     }
   },
   "forbiddenWatermark": {
@@ -234,5 +238,56 @@
         "note": "宠物钩子英文。与科普钉死模板分开。"
       }
     }
+  },
+  "pipeline": [
+    {
+      "id": "benchmark_ready",
+      "label": "对标入库",
+      "gate": null,
+      "owner": "视频制作"
+    },
+    {
+      "id": "remix_pending_review",
+      "label": "待审批 A（二创稿）",
+      "gate": "A",
+      "owner": "用户"
+    },
+    {
+      "id": "remix_rejected",
+      "label": "A 驳回·改稿中",
+      "gate": "A",
+      "owner": "视频制作"
+    },
+    {
+      "id": "remix_approved",
+      "label": "A 通过·可渲染",
+      "gate": null,
+      "owner": "视频制作"
+    },
+    {
+      "id": "render_done",
+      "label": "待审批 B（成片+文案包）",
+      "gate": "B",
+      "owner": "用户"
+    },
+    {
+      "id": "publish_approved",
+      "label": "B 通过·用户亲自发",
+      "gate": null,
+      "owner": "用户"
+    }
+  ],
+  "stageRhythm": {
+    "选题": "选题",
+    "分镜": "分镜",
+    "制作": "渲染",
+    "交审": "审片",
+    "P0过": "审片",
+    "改点中": "审片",
+    "文案已交": "文案包",
+    "拷发就绪": "待发",
+    "已发": "已发",
+    "待复盘": "复盘",
+    "已复盘": "复盘"
   }
 }
